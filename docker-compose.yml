@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  avatar-browser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avatar-browser-service
+    restart: unless-stopped
+
+    ports:
+      # Express REST API
+      - "3001:3001"
+      # noVNC WebSocket proxy (manual login sessions)
+      - "6080:6080"
+
+    volumes:
+      # Persist browser profiles, registry, and debug screenshots across restarts
+      - avatar_data:/app/data
+
+    environment:
+      # ── Required ──────────────────────────────────────────────────────────
+      - API_SECRET=${API_SECRET}
+      - LLM_PROVIDER=${LLM_PROVIDER:-anthropic}
+      - LLM_API_KEY=${LLM_API_KEY}
+
+      # ── Optional ──────────────────────────────────────────────────────────
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL_PRIMARY=${LLM_MODEL_PRIMARY:-claude-haiku-4-5-20251001}
+      - LLM_MODEL_FALLBACK=${LLM_MODEL_FALLBACK:-claude-sonnet-4-20250514}
+      - LLM_FALLBACK_PROVIDER=${LLM_FALLBACK_PROVIDER:-}
+      - LLM_FALLBACK_API_KEY=${LLM_FALLBACK_API_KEY:-}
+
+      - PORT=${PORT:-3001}
+      - VNC_PORT=${VNC_PORT:-6080}
+      - DATA_DIR=/app/data
+
+      - MAX_BROWSER_TIMEOUT=${MAX_BROWSER_TIMEOUT:-120}
+      - MAX_AI_RETRIES=${MAX_AI_RETRIES:-3}
+      - SAVE_DEBUG_SCREENSHOTS=${SAVE_DEBUG_SCREENSHOTS:-true}
+
+      - RATE_LIMIT_MIN_INTERVAL=${RATE_LIMIT_MIN_INTERVAL:-60}
+      - RATE_LIMIT_DAILY_MAX=${RATE_LIMIT_DAILY_MAX:-20}
+
+      - NODE_ENV=${NODE_ENV:-production}
+
+    healthcheck:
+      test: ["CMD", "bash", "/app/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Playwright needs /dev/shm to be large enough for Chromium
+    shm_size: "2gb"
+
+    # Required for Xvfb inside the container
+    security_opt:
+      - seccomp:unconfined
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  avatar_data:
+    driver: local

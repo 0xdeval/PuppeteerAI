@@ -1,0 +1,354 @@
+'use strict';
+
+require('dotenv').config();
+
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+const { getBrowserForProfile } = require('./src/browser');
+const {
+  getProfile,
+  createProfile,
+  updateProfile,
+  deleteProfile: deleteProfileRecord,
+  getAllProfiles,
+  checkRateLimit,
+  recordPost,
+} = require('./src/profiles');
+const { startLoginSession, completeLoginSession } = require('./src/login');
+const { postContent } = require('./src/tasks/post');
+const { replyToPost } = require('./src/tasks/reply');
+const {
+  generateProfileId,
+  downloadImage,
+  cleanupTempFile,
+  cleanupOldTempFiles,
+} = require('./src/utils');
+
+const PORT = parseInt(process.env.PORT || '3001', 10);
+const API_SECRET = process.env.API_SECRET;
+
+const app = express();
+app.use(express.json({ limit: '10mb' }));
+
+// ─── Startup cleanup ──────────────────────────────────────────────────────────
+
+cleanupOldTempFiles().catch((err) =>
+  console.warn('[server] Startup temp cleanup failed:', err.message)
+);
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+
+function requireAuth(req, res, next) {
+  if (!API_SECRET) {
+    return res.status(500).json({ error: 'API_SECRET not configured on server.' });
+  }
+  const key = req.headers['x-api-key'];
+  if (!key || key !== API_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized. Provide a valid x-api-key header.' });
+  }
+  next();
+}
+
+// ─── Helper: build or retrieve profile ───────────────────────────────────────
+
+/**
+ * Ensures a profile exists for the given avatar+platform pair.
+ * Creates one if it doesn't exist (status: needs_login).
+ * Returns { profile, profileId }.
+ */
+function ensureProfile(platform, avatar) {
+  const profileId = generateProfileId(platform, avatar);
+  let profile = getProfile(profileId);
+  if (!profile) {
+    profile = createProfile(profileId, { platform, avatar, status: 'needs_login' });
+  }
+  return { profile, profileId };
+}
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+
+// GET /health
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// GET /profiles
+app.get('/profiles', requireAuth, (req, res) => {
+  const profiles = getAllProfiles();
+  res.json({ profiles });
+});
+
+// DELETE /profiles/:profileId
+app.delete('/profiles/:profileId', requireAuth, async (req, res) => {
+  const { profileId } = req.params;
+  try {
+    deleteProfileRecord(profileId);
+    res.json({ success: true, profileId });
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /post
+app.post('/post', requireAuth, async (req, res) => {
+  const { platform, avatar, text, image_url } = req.body;
+
+  if (!platform || !avatar || !text) {
+    return res.status(400).json({ error: 'platform, avatar, and text are required.' });
+  }
+
+  const { profile, profileId } = ensureProfile(platform, avatar);
+
+  // Profile must be ready
+  if (profile.status === 'needs_login') {
+    return res.status(403).json({
+      error: 'Profile needs login before posting.',
+      needs_relogin: true,
+      profileId,
+    });
+  }
+
+  // Rate limit check
+  const rateCheck = checkRateLimit(profileId);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      error: rateCheck.reason,
+      retryAfter: rateCheck.retryAfter,
+    });
+  }
+
+  let imagePath = null;
+
+  try {
+    // Download image if URL provided
+    if (image_url) {
+      try {
+        imagePath = await downloadImage(image_url);
+      } catch (imgErr) {
+        return res.status(400).json({ error: `Failed to download image: ${imgErr.message}` });
+      }
+    }
+
+    let result;
+
+    try {
+      result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
+        return await postContent(page, { platform, text, imagePath, avatar }, null);
+      });
+    } catch (browserErr) {
+      if (browserErr.code === 'PROFILE_BUSY') {
+        return res.status(429).json({ error: browserErr.message, retryAfter: 30 });
+      }
+      if (browserErr.code === 'BROWSER_TIMEOUT') {
+        return res.status(504).json({ error: 'Browser task timed out.' });
+      }
+      throw browserErr;
+    }
+
+    if (result.status === 'posted') {
+      recordPost(profileId, { postId: result.post_url });
+      return res.json({ success: true, post_url: result.post_url, profileId });
+    }
+
+    if (result.status === 'login_expired') {
+      updateProfile(profileId, { status: 'login_expired' });
+      return res.status(403).json({
+        error: result.error || 'Session expired.',
+        needs_relogin: true,
+        profileId,
+      });
+    }
+
+    return res.status(500).json({ error: result.error || 'Post failed for unknown reason.' });
+  } finally {
+    await cleanupTempFile(imagePath);
+  }
+});
+
+// POST /reply
+app.post('/reply', requireAuth, async (req, res) => {
+  const { platform, avatar, post_url, text } = req.body;
+
+  if (!platform || !avatar || !post_url || !text) {
+    return res.status(400).json({ error: 'platform, avatar, post_url, and text are required.' });
+  }
+
+  const { profile, profileId } = ensureProfile(platform, avatar);
+
+  if (profile.status === 'needs_login') {
+    return res.status(403).json({
+      error: 'Profile needs login before replying.',
+      needs_relogin: true,
+      profileId,
+    });
+  }
+
+  const rateCheck = checkRateLimit(profileId);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      error: rateCheck.reason,
+      retryAfter: rateCheck.retryAfter,
+    });
+  }
+
+  try {
+    let result;
+
+    try {
+      result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
+        return await replyToPost(page, { platform, post_url, text, avatar }, null);
+      });
+    } catch (browserErr) {
+      if (browserErr.code === 'PROFILE_BUSY') {
+        return res.status(429).json({ error: browserErr.message, retryAfter: 30 });
+      }
+      if (browserErr.code === 'BROWSER_TIMEOUT') {
+        return res.status(504).json({ error: 'Browser task timed out.' });
+      }
+      throw browserErr;
+    }
+
+    if (result.status === 'posted') {
+      recordPost(profileId, { postId: result.post_url });
+      return res.json({ success: true, post_url: result.post_url, profileId });
+    }
+
+    if (result.status === 'login_expired') {
+      updateProfile(profileId, { status: 'login_expired' });
+      return res.status(403).json({
+        error: result.error || 'Session expired.',
+        needs_relogin: true,
+        profileId,
+      });
+    }
+
+    return res.status(500).json({ error: result.error || 'Reply failed for unknown reason.' });
+  } catch (err) {
+    console.error('[server] /reply error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /profiles/:profileId/cookies
+// Import cookies exported from a real browser (via Cookie-Editor extension).
+// This is the recommended way to authenticate — bypasses bot detection on login pages entirely.
+app.post('/profiles/:profileId/cookies', requireAuth, async (req, res) => {
+  const { profileId } = req.params;
+  const { cookies } = req.body;
+
+  if (!Array.isArray(cookies) || cookies.length === 0) {
+    return res.status(400).json({ error: '`cookies` must be a non-empty array.' });
+  }
+
+  // Create profile if it doesn't exist yet
+  const firstDash = profileId.indexOf('-');
+  const platform = firstDash !== -1 ? profileId.slice(0, firstDash) : undefined;
+  const avatar = firstDash !== -1 ? profileId.slice(firstDash + 1) : undefined;
+
+  if (!platform || !avatar) {
+    return res.status(400).json({ error: 'profileId must be in format {platform}-{avatar}, e.g. x-john-firemool' });
+  }
+
+  let profile = getProfile(profileId);
+  if (!profile) {
+    profile = createProfile(profileId, { platform, avatar, status: 'needs_login' });
+  }
+
+  try {
+    // Save cookies to a file in the profile directory so they survive across sessions.
+    // browser.addCookies() only lives in-memory and is unreliable across context restarts.
+    const { profileDir } = require('./src/profiles');
+    const cookiesPath = path.join(profileDir(profileId), 'cookies.json');
+    fs.mkdirSync(profileDir(profileId), { recursive: true });
+    fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2), 'utf8');
+
+    updateProfile(profileId, { status: 'ready', lastLoginAt: new Date().toISOString() });
+
+    res.json({
+      status: 'ready',
+      profileId,
+      cookiesImported: cookies.length,
+      message: 'Cookies saved. Profile is ready for posting.',
+    });
+  } catch (err) {
+    console.error('[server] /cookies import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /profiles/:profileId/cookies — show saved cookies (names only, not values)
+app.get('/profiles/:profileId/cookies', requireAuth, (req, res) => {
+  const { profileId } = req.params;
+  const { profileDir } = require('./src/profiles');
+  const cookiesPath = path.join(profileDir(profileId), 'cookies.json');
+  if (!fs.existsSync(cookiesPath)) {
+    return res.status(404).json({ error: 'No cookies file found for this profile.' });
+  }
+  try {
+    const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf8'));
+    res.json({
+      profileId,
+      cookieCount: cookies.length,
+      cookies: cookies.map(c => ({ name: c.name, domain: c.domain, path: c.path, hasValue: !!c.value, valueLength: c.value?.length })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /login/:profileId
+app.get('/login/:profileId', requireAuth, async (req, res) => {
+  const { profileId } = req.params;
+  const firstDash = profileId.indexOf('-');
+  const platform = firstDash !== -1 ? profileId.slice(0, firstDash) : undefined;
+  const avatar = firstDash !== -1 ? profileId.slice(firstDash + 1) : undefined;
+
+  try {
+    const sessionInfo = await startLoginSession(profileId, { platform, avatar });
+    res.json(sessionInfo);
+  } catch (err) {
+    if (err.code === 'PROFILE_NOT_FOUND') {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('[server] /login start error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /login/:profileId/complete
+app.post('/login/:profileId/complete', requireAuth, async (req, res) => {
+  const { profileId } = req.params;
+
+  try {
+    const result = await completeLoginSession(profileId);
+    res.json(result);
+  } catch (err) {
+    if (err.code === 'NO_SESSION') {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error('[server] /login complete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Error handler ────────────────────────────────────────────────────────────
+
+app.use((err, req, res, next) => {
+  console.error('[server] Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error.' });
+});
+
+// ─── Start server ─────────────────────────────────────────────────────────────
+
+app.listen(PORT, () => {
+  console.log(`[server] Avatar Browser Service listening on port ${PORT}`);
+  console.log(`[server] LLM provider: ${process.env.LLM_PROVIDER || 'anthropic'}`);
+  console.log(`[server] Data dir: ${process.env.DATA_DIR || './data'}`);
+});
+
+module.exports = app;

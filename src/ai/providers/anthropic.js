@@ -1,0 +1,104 @@
+'use strict';
+
+const Anthropic = require('@anthropic-ai/sdk');
+const { SYSTEM_PROMPT } = require('../prompts');
+
+const DEFAULT_PRIMARY_MODEL = process.env.LLM_MODEL_PRIMARY || 'claude-haiku-4-5-20251001';
+const DEFAULT_FALLBACK_MODEL = process.env.LLM_MODEL_FALLBACK || 'claude-sonnet-4-20250514';
+
+class AnthropicVisionProvider {
+  constructor(options = {}) {
+    this.client = new Anthropic({
+      apiKey: options.apiKey || process.env.LLM_API_KEY,
+      baseURL: options.baseURL || process.env.LLM_BASE_URL || undefined,
+    });
+    this.primaryModel = options.primaryModel || DEFAULT_PRIMARY_MODEL;
+    this.fallbackModel = options.fallbackModel || DEFAULT_FALLBACK_MODEL;
+  }
+
+  /**
+   * Analyzes a screenshot with a vision-capable Claude model.
+   *
+   * @param {object} params
+   * @param {string} params.imageBase64       - Base64-encoded PNG screenshot.
+   * @param {string} params.instruction       - Task-specific instruction for the AI.
+   * @param {object} [params.responseSchema]  - Unused directly; schema is described in system prompt.
+   * @param {boolean} [params.useFallback]    - Force use of the fallback model.
+   * @returns {Promise<object>} Parsed JSON action object.
+   */
+  async analyze({ imageBase64, instruction, responseSchema, useFallback = false }) {
+    const model = useFallback ? this.fallbackModel : this.primaryModel;
+
+    try {
+      const response = await this._callApi(model, imageBase64, instruction);
+      return this._parseResponse(response);
+    } catch (err) {
+      // On primary model failure, try fallback automatically
+      if (!useFallback && this._isRetryableError(err)) {
+        console.warn(`[anthropic] Primary model (${model}) failed (${err.message}), trying fallback.`);
+        const fallbackResponse = await this._callApi(this.fallbackModel, imageBase64, instruction);
+        return this._parseResponse(fallbackResponse);
+      }
+      throw err;
+    }
+  }
+
+  async _callApi(model, imageBase64, instruction) {
+    const message = await this.client.messages.create({
+      model,
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: imageBase64,
+              },
+            },
+            {
+              type: 'text',
+              text: instruction,
+            },
+          ],
+        },
+      ],
+    });
+
+    return message.content[0].text;
+  }
+
+  _parseResponse(rawText) {
+    // Strip any accidental markdown code fences
+    const cleaned = rawText
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // Attempt to extract JSON object from mixed content
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]);
+      }
+      throw new Error(`Could not parse JSON from Anthropic response: ${rawText.slice(0, 200)}`);
+    }
+  }
+
+  _isRetryableError(err) {
+    if (!err) return false;
+    // Rate limits, server errors, overload
+    if (err.status === 429 || err.status === 529 || err.status >= 500) return true;
+    // Network / timeout errors
+    if (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') return true;
+    return false;
+  }
+}
+
+module.exports = { AnthropicVisionProvider };
