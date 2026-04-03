@@ -71,9 +71,9 @@ docker compose down
 
 Data (browser profiles, registry) is stored in a Docker volume and survives restarts.
 
-| Port | Purpose |
-|------|---------|
-| 3001 | API |
+| Port | Purpose                                 |
+| ---- | --------------------------------------- |
+| 3001 | API                                     |
 | 6080 | noVNC (remote browser for manual login) |
 
 > For VPS deployments, keep port 6080 behind a firewall or SSH tunnel — never expose it publicly.
@@ -93,6 +93,7 @@ X and Facebook actively block login attempts from automated browsers. The reliab
 **Step 2 — Log into X (or Facebook) normally** in that browser as the avatar account.
 
 **Step 3 — Export the cookies:**
+
 - Click the Cookie-Editor icon
 - Click **Export → Export as JSON**
 - This copies the cookies JSON to your clipboard
@@ -144,6 +145,7 @@ x-api-key: <your API_SECRET>
 ## API Reference
 
 ### `GET /health`
+
 Health check. No auth required.
 
 ```bash
@@ -157,6 +159,7 @@ curl http://localhost:3001/health
 ---
 
 ### `POST /post`
+
 Post text (and optionally an image) to a social media platform.
 
 ```bash
@@ -173,12 +176,12 @@ curl -X POST http://localhost:3001/post \
 
 **Body fields:**
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `avatar` | Yes | Avatar identifier (lowercase, hyphenated) |
-| `platform` | Yes | `x` or `facebook` |
-| `text` | Yes | Post content |
-| `image_url` | No | Image to attach. Service downloads it before uploading. |
+| Field       | Required | Description                                             |
+| ----------- | -------- | ------------------------------------------------------- |
+| `avatar`    | Yes      | Avatar identifier (lowercase, hyphenated)               |
+| `platform`  | Yes      | `x` or `facebook`                                       |
+| `text`      | Yes      | Post content                                            |
+| `image_url` | No       | Image to attach. Service downloads it before uploading. |
 
 **Responses:**
 
@@ -199,6 +202,7 @@ curl -X POST http://localhost:3001/post \
 ---
 
 ### `POST /reply`
+
 Reply to an existing post.
 
 ```bash
@@ -216,19 +220,20 @@ curl -X POST http://localhost:3001/reply \
 
 **Body fields:**
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `avatar` | Yes | Avatar identifier |
-| `platform` | Yes | `x` or `facebook` |
-| `post_url` | Yes | URL of the post to reply to |
-| `text` | Yes | Reply content |
-| `image_url` | No | Optional image attachment |
+| Field       | Required | Description                 |
+| ----------- | -------- | --------------------------- |
+| `avatar`    | Yes      | Avatar identifier           |
+| `platform`  | Yes      | `x` or `facebook`           |
+| `post_url`  | Yes      | URL of the post to reply to |
+| `text`      | Yes      | Reply content               |
+| `image_url` | No       | Optional image attachment   |
 
 Response structure is identical to `/post`.
 
 ---
 
 ### `POST /profiles/:profileId/cookies`
+
 Import cookies from a real browser session. This is the recommended authentication method — it completely bypasses bot detection on login pages.
 
 `profileId` format: `{platform}-{avatar}` — e.g. `x-john-firemool`. The profile is created automatically if it doesn't exist.
@@ -248,12 +253,18 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
 The `cookies` array is the JSON exported directly from the [Cookie-Editor](https://cookie-editor.com) browser extension — no transformation needed.
 
 ```json
-{ "status": "ready", "profileId": "x-john-firemool", "cookiesImported": 42, "message": "Cookies imported. Profile is ready for posting." }
+{
+  "status": "ready",
+  "profileId": "x-john-firemool",
+  "cookiesImported": 42,
+  "message": "Cookies imported. Profile is ready for posting."
+}
 ```
 
 ---
 
 ### `GET /login/:profileId`
+
 Open a browser for manual login. Creates the profile automatically if it doesn't exist yet.
 
 `profileId` format: `{platform}-{avatar}` — e.g. `x-john-firemool`, `fb-sarah-blaze`.
@@ -277,6 +288,7 @@ Locally, the browser window opens directly on your desktop. On a VPS, open the `
 ---
 
 ### `POST /login/:profileId/complete`
+
 Call this after you've finished logging in manually. Closes the browser and marks the profile as ready.
 
 ```bash
@@ -285,12 +297,17 @@ curl -X POST http://localhost:3001/login/x-john-firemool/complete \
 ```
 
 ```json
-{ "status": "ready", "profileId": "x-john-firemool", "message": "Profile is now active." }
+{
+  "status": "ready",
+  "profileId": "x-john-firemool",
+  "message": "Profile is now active."
+}
 ```
 
 ---
 
 ### `GET /profiles`
+
 List all known avatar profiles and their statuses.
 
 ```bash
@@ -301,23 +318,36 @@ curl http://localhost:3001/profiles \
 ```json
 {
   "profiles": [
-    { "profileId": "x-john-firemool", "platform": "x", "avatar": "john-firemool", "status": "ready", "lastUsed": "2026-04-03T10:00:00Z" },
-    { "profileId": "fb-john-firemool", "platform": "facebook", "avatar": "john-firemool", "status": "needs_login", "lastUsed": null }
+    {
+      "profileId": "x-john-firemool",
+      "platform": "x",
+      "avatar": "john-firemool",
+      "status": "ready",
+      "lastUsed": "2026-04-03T10:00:00Z"
+    },
+    {
+      "profileId": "fb-john-firemool",
+      "platform": "facebook",
+      "avatar": "john-firemool",
+      "status": "needs_login",
+      "lastUsed": null
+    }
   ]
 }
 ```
 
 **Status values:**
 
-| Status | Meaning |
-|--------|---------|
-| `ready` | Valid session — can post automatically |
-| `needs_login` | Profile created but never logged in |
+| Status          | Meaning                                           |
+| --------------- | ------------------------------------------------- |
+| `ready`         | Valid session — can post automatically            |
+| `needs_login`   | Profile created but never logged in               |
 | `login_expired` | Session was valid but expired — re-login required |
 
 ---
 
 ### `DELETE /profiles/:profileId`
+
 Remove a profile and all its data. Use when retiring an avatar.
 
 ```bash
@@ -335,34 +365,34 @@ curl -X DELETE http://localhost:3001/profiles/x-john-firemool \
 
 Enforced per avatar per platform:
 
-| Limit | Default | Env var |
-|-------|---------|---------|
+| Limit                          | Default    | Env var                   |
+| ------------------------------ | ---------- | ------------------------- |
 | Minimum interval between posts | 60 seconds | `RATE_LIMIT_MIN_INTERVAL` |
-| Maximum posts per day | 20 | `RATE_LIMIT_DAILY_MAX` |
+| Maximum posts per day          | 20         | `RATE_LIMIT_DAILY_MAX`    |
 
 ---
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `API_SECRET` | Yes | — | API key for all requests |
-| `LLM_PROVIDER` | Yes | — | `anthropic`, `openai`, or `ollama` |
-| `LLM_API_KEY` | Yes* | — | API key for cloud LLM. *Not needed for ollama-only setups. |
-| `LLM_MODEL_PRIMARY` | No | `claude-haiku-4-5-20251001` | Fast/cheap model for routine actions |
-| `LLM_MODEL_FALLBACK` | No | `claude-sonnet-4-20250514` | More capable model for retries |
-| `LLM_BASE_URL` | No | `http://localhost:11434` | Base URL for local Ollama |
-| `LLM_FALLBACK_PROVIDER` | No | same as primary | Provider for fallback model |
-| `LLM_FALLBACK_API_KEY` | No | — | API key for fallback provider |
-| `PORT` | No | `3001` | API port |
-| `VNC_PORT` | No | `6080` | noVNC port |
-| `DATA_DIR` | No | `/app/data` | Where profiles and registry are stored. **Change this for local runs.** |
-| `MAX_BROWSER_TIMEOUT` | No | `120` | Max seconds a browser can run per request |
-| `MAX_AI_RETRIES` | No | `3` | Max AI retries per action step |
-| `RATE_LIMIT_MIN_INTERVAL` | No | `60` | Min seconds between posts per avatar |
-| `RATE_LIMIT_DAILY_MAX` | No | `20` | Max posts per avatar per day |
-| `SAVE_DEBUG_SCREENSHOTS` | No | `true` | Save screenshots on failure to `/data/debug/` |
-| `NODE_ENV` | No | `production` | `development` for verbose logging |
+| Variable                  | Required | Default                     | Description                                                                                                 |
+| ------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `API_SECRET`              | Yes      | —                           | API key for all requests                                                                                    |
+| `LLM_PROVIDER`            | Yes      | —                           | `anthropic`, `openai`, or `ollama`                                                                          |
+| `LLM_API_KEY`             | Yes\*    | —                           | API key for cloud LLM. \*Optional for ollama-only setups.                                                   |
+| `LLM_MODEL_PRIMARY`       | No\*     | `claude-haiku-4-5-20251001` | Fast/cheap model for routine actions. \*Required when `LLM_PROVIDER=ollama`.                                |
+| `LLM_MODEL_FALLBACK`      | No       | `claude-sonnet-4-20250514`  | More capable model for retries                                                                              |
+| `LLM_BASE_URL`            | No\*     | —                           | Base URL for API endpoint. \*Required when `LLM_PROVIDER=ollama` (example: `http://192.168.1.14:11434/v1`). |
+| `LLM_FALLBACK_PROVIDER`   | No       | same as primary             | Provider for fallback model                                                                                 |
+| `LLM_FALLBACK_API_KEY`    | No       | —                           | API key for fallback provider                                                                               |
+| `PORT`                    | No       | `3001`                      | API port                                                                                                    |
+| `VNC_PORT`                | No       | `6080`                      | noVNC port                                                                                                  |
+| `DATA_DIR`                | No       | `/app/data`                 | Where profiles and registry are stored. **Change this for local runs.**                                     |
+| `MAX_BROWSER_TIMEOUT`     | No       | `120`                       | Max seconds a browser can run per request                                                                   |
+| `MAX_AI_RETRIES`          | No       | `3`                         | Max AI retries per action step                                                                              |
+| `RATE_LIMIT_MIN_INTERVAL` | No       | `60`                        | Min seconds between posts per avatar                                                                        |
+| `RATE_LIMIT_DAILY_MAX`    | No       | `20`                        | Max posts per avatar per day                                                                                |
+| `SAVE_DEBUG_SCREENSHOTS`  | No       | `true`                      | Save screenshots on failure to `/data/debug/`                                                               |
+| `NODE_ENV`                | No       | `production`                | `development` for verbose logging                                                                           |
 
 ---
 

@@ -5,6 +5,7 @@ const path = require('path');
 
 const { AnthropicVisionProvider } = require('./providers/anthropic');
 const { OpenAIVisionProvider } = require('./providers/openai');
+const { OllamaVisionProvider } = require('./providers/ollama');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const DEBUG_DIR = path.join(DATA_DIR, 'debug');
@@ -21,6 +22,9 @@ function buildProvider(providerName, options = {}) {
   const name = (providerName || '').toLowerCase();
   if (name === 'openai') {
     return new OpenAIVisionProvider(options);
+  }
+  if (name === 'ollama') {
+    return new OllamaVisionProvider(options);
   }
   // Default: anthropic
   return new AnthropicVisionProvider(options);

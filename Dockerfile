@@ -42,8 +42,13 @@ WORKDIR /app
 # Copy package files first so Docker can cache the npm install layer
 COPY package.json package-lock.json* ./
 
-# Install Node dependencies
-RUN npm ci --omit=dev
+# Install Node dependencies.
+# Prefer deterministic installs when a lockfile exists, and fall back otherwise.
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=dev; \
+    else \
+      npm install --omit=dev; \
+    fi
 
 # Install Playwright Chromium browser binary
 RUN npx playwright install chromium
