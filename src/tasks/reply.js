@@ -1,9 +1,28 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { aiAction } = require('../ai/vision');
 const { getTaskSteps } = require('../ai/prompts');
 const { checkSession } = require('./session');
 const { humanType, randomDelay } = require('../utils');
+
+const DEBUG_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data'), 'debug');
+const SAVE_DEBUG = process.env.SAVE_DEBUG_SCREENSHOTS !== 'false';
+
+async function saveStepScreenshot(page, options, stepLabel) {
+  if (!SAVE_DEBUG) return;
+  try {
+    fs.mkdirSync(DEBUG_DIR, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const label = [options.avatar, options.platform, stepLabel].filter(Boolean).join('-');
+    const filepath = path.join(DEBUG_DIR, `${ts}-${label}.png`);
+    await page.screenshot({ path: filepath, fullPage: false });
+    console.log(`[reply] Debug screenshot: ${filepath}`);
+  } catch (e) {
+    console.warn('[reply] Could not save debug screenshot:', e.message);
+  }
+}
 
 /**
  * Replies to an existing social media post using AI-guided browser automation.
@@ -107,6 +126,7 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
 
     if (verifyResult.status === 'post_success' || verifyResult.confidence >= 0.8) {
       console.log(`[reply] Successfully replied for ${avatar} on ${platform}`);
+      await saveStepScreenshot(page, aiOptions, 'proof-replied');
       return {
         status: 'posted',
         post_url: verifyResult.post_url || null,

@@ -195,6 +195,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
 
     if (verifyPostResult.status === 'post_success' || verifyPostResult.confidence >= 0.8) {
       console.log(`[post] Successfully posted for ${avatar} on ${platform}`);
+      await saveStepScreenshot(page, aiOptions, 'proof-posted');
       return {
         status: 'posted',
         post_url: verifyPostResult.post_url || null,
