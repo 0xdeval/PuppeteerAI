@@ -41,28 +41,50 @@ const TASKS = {
    * Determine whether the user is currently logged in.
    */
   check_session: {
-    steps: [
+    x: [
       {
         id: 'check_logged_in',
-        instruction: `Look at this screenshot of {{platform}}.
-Determine if the user (avatar: {{avatar}}) is currently logged in.
+        instruction: `You are looking at a screenshot of X (Twitter). Determine if the user (avatar: {{avatar}}) is currently logged in.
 
 Signs of being LOGGED IN:
-- Home feed with posts visible
-- Navigation with profile icon, home, notifications etc.
-- Compose/Tweet/Post button visible
-- Profile name or avatar in the interface
+- Home feed with tweets/posts visible
+- Left sidebar with Home, Explore, Notifications, Profile links
+- A "Post" button visible in the sidebar
+- Profile avatar or name visible in the interface
 
 Signs of being LOGGED OUT:
-- Login form with email/phone/password fields
-- "Sign in", "Log in", "Create account" buttons prominently displayed
-- No user-specific navigation
-- Landing/marketing page
+- A login form with email/phone and password fields
+- "Sign in" or "Create account" buttons prominently shown
+- A landing/marketing page with no personal feed
 
 Signs of SESSION EXPIRY:
-- "Your session has expired" message
-- Redirect to login page
-- Security verification prompt
+- "Your session has expired" or similar message
+- Redirected to a login page unexpectedly
+- A security verification or CAPTCHA prompt
+
+Set status to: logged_in, logged_out, or session_expired.
+Return confidence 1.0 only if you are absolutely certain.`,
+      },
+    ],
+    facebook: [
+      {
+        id: 'check_logged_in',
+        instruction: `You are looking at a screenshot of Facebook. Determine if the user (avatar: {{avatar}}) is currently logged in.
+
+Signs of being LOGGED IN:
+- News feed with posts visible
+- Top navigation bar with Home, profile name/avatar, notifications
+- A "What's on your mind?" compose area visible
+
+Signs of being LOGGED OUT:
+- A login form with email and password fields
+- "Log in" or "Create new account" buttons shown
+- Facebook's landing/marketing page
+
+Signs of SESSION EXPIRY:
+- "You've been logged out" or similar message
+- Redirected to login unexpectedly
+- A security checkpoint or verification prompt
 
 Set status to: logged_in, logged_out, or session_expired.
 Return confidence 1.0 only if you are absolutely certain.`,
@@ -74,79 +96,114 @@ Return confidence 1.0 only if you are absolutely certain.`,
    * Create a new post on the platform.
    */
   create_post: {
-    steps: [
+    x: [
       {
         id: 'find_compose_button',
-        instruction: `Look at this screenshot of {{platform}}.
-Find the button or link to compose/create a new post.
-On X/Twitter this is typically: a "Post" button (blue, often in sidebar), a compose icon, or the text area saying "What is happening?!".
-On Facebook this is typically: a "What's on your mind?" text area or a "Create post" button.
-
-Click the compose button or area. If there is already a text input/textarea focused and ready for typing, use action "none" and set status to "ready_to_type".`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+Find and click the "Post" button in the left sidebar to open the compose dialog.
+It is a prominent button, usually dark or black, labeled "Post".
+If the compose dialog is already open and the text area (placeholder: "What's happening?") is visible, use action "none" and status "ready_to_type".`,
       },
       {
         id: 'type_post_text',
-        instruction: `Look at this screenshot of {{platform}}.
-A compose/post dialog or text area should be visible and active after clicking the compose button.
-
-On X/Twitter, the text area is often a div with placeholder text "What is happening?!" — it may not look like a traditional input box.
-On Facebook, it is usually a div or textarea saying "What's on your mind?".
-
-If a compose dialog/modal is open (you can tell by a "Post"/"Tweet" submit button being visible near the text area), click the text input area.
-If the text area already looks focused or has a cursor, use action "none" and status "ready_to_type".
-If a dialog is open but you cannot locate the text area, click in the center of the dialog.
-Only return action "error" if there is NO compose dialog open at all (e.g. you only see the home feed with no modal).`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+The compose dialog should be open. The text area has placeholder text "What's happening?".
+If the text area is visible, click it to focus it.
+If it already has a cursor or looks focused, use action "none" and status "ready_to_type".
+Only return action "error" if the compose dialog is not open at all.`,
       },
       {
         id: 'attach_image',
-        instruction: `Look at this screenshot of {{platform}}.
+        instruction: `You are looking at a screenshot of X (Twitter).
 An image needs to be attached to this post.
-Look for a photo/image attachment button (camera icon, photo icon, "Add photo" text, image upload area).
-Click that button so a file picker appears (even though we'll use the hidden input directly).
-
-If the image appears to already be attached (thumbnail visible), return action "none" with status "image_attached".`,
+Look for the image/photo icon in the toolbar below the text area (it looks like a landscape/photo icon).
+Click it to open the file picker.
+If an image thumbnail is already visible in the compose area, return action "none" with status "image_attached".`,
       },
       {
         id: 'verify_image',
-        instruction: `Look at this screenshot of {{platform}}.
+        instruction: `You are looking at a screenshot of X (Twitter).
 Check if an image has been successfully attached to the post.
-Look for: an image thumbnail preview, a small image card in the compose area, or an "x" button near an image.
-
+Look for an image thumbnail preview or a small image card inside the compose area.
 If image is attached, return action "none" with status "image_attached" and confidence 0.9+.
-If no image visible, return action "error" with reasoning explaining what you see.`,
+If no image is visible, return action "error" with reasoning explaining what you see.`,
       },
       {
         id: 'click_post_button',
-        instruction: `Look at this screenshot of {{platform}}.
-Find and click the final "Post", "Tweet", "Share", or "Publish" button to submit the post.
-
-This button:
-- Is usually blue, purple, or the platform's primary color
-- Says "Post", "Tweet", "Share", "Publish", or similar
-- Is NOT the compose/new post button (that already got us here)
-- Should be near the compose area or at the bottom of a dialog
-
-Click it. Do not click Cancel or Close.`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+The compose dialog is open and the post text has been typed. Find and click the "Post" button to publish.
+This button is inside or near the compose dialog — it is NOT the "Post" button in the sidebar.
+Do not click Cancel or Close.`,
       },
       {
         id: 'verify_post',
-        instruction: `Look at this screenshot of {{platform}}.
+        instruction: `You are looking at a screenshot of X (Twitter).
 Determine if the post was successfully published.
 
 Signs of SUCCESS:
-- Post appears in feed
-- Confirmation toast/notification ("Your post was sent", "Tweet sent!", etc.)
-- Compose dialog closed and feed is visible
-- The composed text is now shown as a post
+- Compose dialog is closed and the home feed is visible
+- A confirmation notification like "Your post was sent" is shown
+- The composed text now appears as a post in the feed
 
 Signs of FAILURE:
-- Error message visible
-- Compose dialog still open with error
-- Rate limit warning
-- Login wall appeared
+- Compose dialog is still open with an error message
+- A rate limit or restriction warning is visible
+- A login page appeared
 
-If you can see the URL or a link to the new post, extract it for post_url.
-Set status to "post_success" or "post_failed" accordingly.`,
+If you can see a link or URL to the new post, set it as post_url.
+Set status to "post_success" or "post_failed".`,
+      },
+    ],
+    facebook: [
+      {
+        id: 'find_compose_button',
+        instruction: `You are looking at a screenshot of Facebook.
+Find and click the "What's on your mind?" text area or "Create post" button to open the compose dialog.
+If the compose dialog is already open and ready for typing, use action "none" and status "ready_to_type".`,
+      },
+      {
+        id: 'type_post_text',
+        instruction: `You are looking at a screenshot of Facebook.
+The compose dialog should be open with a text area saying "What's on your mind?".
+Click the text area to focus it.
+If it already has a cursor or looks focused, use action "none" and status "ready_to_type".
+Only return action "error" if the compose dialog is not open at all.`,
+      },
+      {
+        id: 'attach_image',
+        instruction: `You are looking at a screenshot of Facebook.
+An image needs to be attached. Look for a "Photo/Video" button or camera icon in the compose dialog toolbar.
+Click it to open the file picker.
+If an image preview is already visible, return action "none" with status "image_attached".`,
+      },
+      {
+        id: 'verify_image',
+        instruction: `You are looking at a screenshot of Facebook.
+Check if an image has been successfully attached to the post.
+Look for an image thumbnail or preview inside the compose dialog.
+If image is attached, return action "none" with status "image_attached" and confidence 0.9+.
+If no image is visible, return action "error" with reasoning explaining what you see.`,
+      },
+      {
+        id: 'click_post_button',
+        instruction: `You are looking at a screenshot of Facebook.
+The compose dialog is open and text has been typed. Find and click the "Post" button to publish.
+Do not click Cancel or Close.`,
+      },
+      {
+        id: 'verify_post',
+        instruction: `You are looking at a screenshot of Facebook.
+Determine if the post was successfully published.
+
+Signs of SUCCESS:
+- Compose dialog is closed and the feed is visible
+- The composed text now appears as a post in the feed
+
+Signs of FAILURE:
+- Compose dialog is still open with an error
+- A restriction or login prompt appeared
+
+Set status to "post_success" or "post_failed".`,
       },
     ],
   },
@@ -155,37 +212,65 @@ Set status to "post_success" or "post_failed" accordingly.`,
    * Reply to an existing post.
    */
   reply_to_post: {
-    steps: [
+    x: [
       {
         id: 'find_reply_button',
-        instruction: `Look at this screenshot of {{platform}}.
-You should be viewing a specific post/tweet/status. Find and click the reply button for that post.
-
-On X/Twitter: look for a speech bubble / comment icon below the post.
-On Facebook: look for a "Comment" button or link below the post.
-
-Click the reply/comment button to open the reply input.`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+Find the reply input field that contains the placeholder text "Post your reply" and click on it.
+This input field is located below the original tweet. Click directly on it to focus it.
+If you cannot find it, return action "error" with reasoning explaining what you see.`,
       },
       {
         id: 'type_reply',
-        instruction: `Look at this screenshot of {{platform}}.
-A reply text input should now be visible and active.
-If the input is ready, return action "none" and status "ready_to_type".
-If you need to click the input first, click it.
-If no reply input is visible, return action "error".`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+The reply input field should now be focused. It may still show the placeholder "Post your reply" or have a cursor in it.
+If the input is ready for typing, return action "none" and status "ready_to_type".
+If the input is visible but not focused, click it.
+If any unrelated popup or dialog is open, return action "error" describing what you see.
+If no reply input is visible at all, return action "error".`,
       },
       {
         id: 'submit_reply',
-        instruction: `Look at this screenshot of {{platform}}.
-Find and click the button to submit/post the reply.
-This might say "Reply", "Comment", "Post reply", or similar.
-Do not click Cancel.`,
+        instruction: `You are looking at a screenshot of X (Twitter).
+You have just typed a reply into the reply input field. Now find and click the "Reply" button to submit it.
+After text is typed, the "Reply" button becomes active and fully colored (white or black depending on the system theme) — click it.
+Do not click it if it still appears greyed out or disabled.
+Do not click any other button such as Cancel, Close, Share, or Bookmark.`,
       },
       {
         id: 'verify_reply',
-        instruction: `Look at this screenshot of {{platform}}.
+        instruction: `You are looking at a screenshot of X (Twitter).
 Has the reply been successfully posted?
-Look for the reply text now appearing in the comments/replies section.
+Look for the reply text now appearing below the original tweet in the replies section.
+Set status to "post_success" or "post_failed".`,
+      },
+    ],
+    facebook: [
+      {
+        id: 'find_reply_button',
+        instruction: `You are looking at a screenshot of Facebook.
+Find the comment input field below the post — it typically says "Write a comment…" — and click on it to focus it.
+If you cannot find it, return action "error" with reasoning explaining what you see.`,
+      },
+      {
+        id: 'type_reply',
+        instruction: `You are looking at a screenshot of Facebook.
+The comment input field should now be focused, showing "Write a comment…" placeholder or a cursor.
+If the input is ready for typing, return action "none" and status "ready_to_type".
+If the input is visible but not focused, click it.
+If no comment input is visible, return action "error".`,
+      },
+      {
+        id: 'submit_reply',
+        instruction: `You are looking at a screenshot of Facebook.
+You have typed a comment. Submit it by pressing Enter or clicking the send/post icon next to the comment input.
+Do not click Cancel or any unrelated button.`,
+      },
+      {
+        id: 'verify_reply',
+        instruction: `You are looking at a screenshot of Facebook.
+Has the comment been successfully posted?
+Look for the comment text now appearing in the comments section below the post.
 Set status to "post_success" or "post_failed".`,
       },
     ],
@@ -205,15 +290,35 @@ function formatInstruction(template, vars) {
 }
 
 /**
+ * Normalises a platform string to a TASKS key ('x' or 'facebook').
+ * Falls back to 'x' for unknown platforms.
+ * @param {string} platform
+ * @returns {string}
+ */
+function normalisePlatform(platform) {
+  const p = (platform || '').toLowerCase();
+  if (p === 'facebook') return 'facebook';
+  return 'x'; // covers 'x', 'twitter', 'x/twitter', etc.
+}
+
+/**
  * Returns the steps for a given task, with placeholders filled.
+ * For tasks that have platform-specific variants, the correct variant is
+ * selected automatically based on vars.platform.
+ *
  * @param {string} taskName  - Key in TASKS object.
- * @param {Record<string, string>} vars  - e.g. { platform: 'X/Twitter', avatar: 'aria' }
+ * @param {Record<string, string>} vars  - e.g. { platform: 'X', avatar: 'aria' }
  * @returns {{ id: string, instruction: string }[]}
  */
 function getTaskSteps(taskName, vars = {}) {
   const task = TASKS[taskName];
   if (!task) throw new Error(`Unknown task: ${taskName}`);
-  return task.steps.map((step) => ({
+
+  // Tasks with platform-specific variants have no .steps array at the top level
+  const steps = task.steps || task[normalisePlatform(vars.platform)];
+  if (!steps) throw new Error(`No steps found for task '${taskName}' on platform '${vars.platform}'`);
+
+  return steps.map((step) => ({
     id: step.id,
     instruction: formatInstruction(step.instruction, vars),
   }));
