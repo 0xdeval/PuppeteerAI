@@ -65,9 +65,6 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
 
     const steps = getTaskSteps('reply_to_post', { platform: platformLabel, avatar });
 
-    // ── Step 3: Find reply input ────────────────────────────────────────────
-    console.log('[reply] Step 3: Finding reply input');
-
     // Brief anti-detection pause + small scroll to make post visible
     await randomDelay(500, 1200);
     if (Math.random() > 0.5) {
@@ -75,21 +72,26 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
       await randomDelay(400, 800);
     }
 
+    // ── Step 3: Click reply input ───────────────────────────────────────────
+    console.log('[reply] Step 3: Finding and clicking reply input');
     const replyBtnStep = steps.find((s) => s.id === 'find_reply_button');
     const replyBtnResult = await aiAction(page, replyBtnStep.instruction, aiOptions);
-    await saveStepScreenshot(page, aiOptions, 'step3-find-reply-input');
 
     if (replyBtnResult.action === 'error') {
+      await saveStepScreenshot(page, aiOptions, 'step3-reply-input-error');
       return { status: 'error', error: `Could not find reply input: ${replyBtnResult.reasoning}` };
     }
 
-    if (replyBtnResult.action === 'click' && replyBtnResult.x && replyBtnResult.y) {
+    // Always click if coordinates provided — even if AI says 'none', clicking
+    // the input is necessary to ensure focus before typing
+    if (replyBtnResult.x && replyBtnResult.y) {
       await page.mouse.click(replyBtnResult.x, replyBtnResult.y);
-      await randomDelay(700, 1500);
     }
+    await randomDelay(700, 1500);
+    await saveStepScreenshot(page, aiOptions, 'step3-reply-input-clicked');
 
-    // ── Step 4: Confirm reply input is ready ────────────────────────────────
-    console.log('[reply] Step 4: Confirming reply input');
+    // ── Step 4: Confirm reply input is focused ──────────────────────────────
+    console.log('[reply] Step 4: Confirming reply input is focused');
     const typeStep = steps.find((s) => s.id === 'type_reply');
     const typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
     await saveStepScreenshot(page, aiOptions, 'step4-input-ready');
@@ -98,14 +100,28 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
       return { status: 'error', error: `Reply input not ready: ${typeCheck.reasoning}` };
     }
 
-    if (typeCheck.action === 'click' && typeCheck.x && typeCheck.y) {
+    if (typeCheck.x && typeCheck.y) {
       await page.mouse.click(typeCheck.x, typeCheck.y);
       await randomDelay(400, 800);
     }
 
     // ── Step 5: Type reply text ─────────────────────────────────────────────
+    // Use execCommand('insertText') to inject the full text into the focused
+    // contenteditable element in one shot. This avoids char-by-char autocomplete
+    // interference (e.g. apostrophes triggering X's suggestions and eating chars).
     console.log('[reply] Step 5: Typing reply');
-    await humanType(page, text);
+    const typed = await page.evaluate((replyText) => {
+      const el = document.activeElement;
+      if (!el) return false;
+      return document.execCommand('insertText', false, replyText);
+    }, text);
+
+    if (!typed) {
+      // execCommand not supported on this element — fall back to keyboard.type
+      console.warn('[reply] execCommand failed, falling back to keyboard.type');
+      await page.keyboard.type(text);
+    }
+
     await randomDelay(600, 1400);
     await saveStepScreenshot(page, aiOptions, 'step5-typed');
 
@@ -119,9 +135,10 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
       return { status: 'error', error: `Could not find reply submit button: ${submitResult.reasoning}` };
     }
 
-    if (submitResult.action === 'click' && submitResult.x && submitResult.y) {
+    if (submitResult.x && submitResult.y) {
       await page.mouse.click(submitResult.x, submitResult.y);
-    } else if (submitResult.action !== 'none') {
+    } else {
+      // Fallback: keyboard shortcut works in both inline and modal compose on X
       await page.keyboard.press('Control+Enter');
     }
 

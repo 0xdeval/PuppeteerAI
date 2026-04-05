@@ -223,9 +223,16 @@ If you cannot find it, return action "error" with reasoning explaining what you 
       {
         id: 'type_reply',
         instruction: `You are looking at a screenshot of X (Twitter).
-The reply input field should now be focused. It may still show the placeholder "Post your reply" or have a cursor in it.
-If the input is ready for typing, return action "none" and status "ready_to_type".
-If the input is visible but not focused, click it.
+Check whether the reply input is focused and ready for typing.
+
+Signs that the input IS active and ready:
+- A "Replying to @username" line is visible above the input area
+- A toolbar with icons (image, GIF, emoji, location, flag, etc.) is visible below the input
+- A "Reply" button is visible to the right of the toolbar
+- The "Post your reply" placeholder or a cursor is visible in the input area
+
+If ALL of these signs are visible, the input is active — return action "none" and status "ready_to_type".
+If the input area is visible but these signs are NOT present (not yet focused), click directly on the "Post your reply" text area to focus it.
 If any unrelated popup or dialog is open, return action "error" describing what you see.
 If no reply input is visible at all, return action "error".`,
       },
