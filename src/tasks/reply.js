@@ -51,6 +51,7 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     const session = await checkSession(page, platformLabel, llmClient, { avatar });
 
     if (!session.logged_in) {
+      await saveStepScreenshot(page, aiOptions, 'error-not-logged-in');
       return {
         status: 'login_expired',
         error: session.session_expired
@@ -134,6 +135,7 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     }
 
     if (verifyResult.status === 'session_expired' || verifyResult.status === 'logged_out') {
+      await saveStepScreenshot(page, aiOptions, 'error-session-expired');
       return { status: 'login_expired', error: 'Session expired during reply.' };
     }
 

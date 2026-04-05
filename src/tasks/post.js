@@ -66,6 +66,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
 
     if (!session.logged_in) {
       console.log(`[post] Session check failed: ${session.reasoning}`);
+      await saveStepScreenshot(page, aiOptions, 'error-not-logged-in');
       return {
         status: 'login_expired',
         error: 'Not logged in — cookies may be expired. Re-import auth_token and ct0.',
@@ -204,6 +205,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
 
     // Check if we got logged out during the posting attempt
     if (verifyPostResult.status === 'session_expired' || verifyPostResult.status === 'logged_out') {
+      await saveStepScreenshot(page, aiOptions, 'error-session-expired');
       return { status: 'login_expired', error: 'Session expired during posting.' };
     }
 
