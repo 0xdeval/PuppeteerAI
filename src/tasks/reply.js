@@ -5,7 +5,7 @@ const path = require('path');
 const { aiAction } = require('../ai/vision');
 const { getTaskSteps } = require('../ai/prompts');
 const { checkSession } = require('./session');
-const { humanType, randomDelay } = require('../utils');
+const { humanType, randomDelay, dismissCookieBanner } = require('../utils');
 
 const DEBUG_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data'), 'debug');
 const SAVE_DEBUG = process.env.SAVE_DEBUG_SCREENSHOTS !== 'false';
@@ -45,10 +45,13 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     console.log(`[reply] Step 1: Navigating to post: ${post_url}`);
     await page.goto(post_url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await randomDelay(1500, 3000);
+    await dismissCookieBanner(page);
+    await saveStepScreenshot(page, aiOptions, 'step1-navigated');
 
     // ── Step 2: Verify session ──────────────────────────────────────────────
     console.log('[reply] Step 2: Checking session');
     const session = await checkSession(page, platformLabel, llmClient, { avatar });
+    await saveStepScreenshot(page, aiOptions, 'step2-session-check');
 
     if (!session.logged_in) {
       await saveStepScreenshot(page, aiOptions, 'error-not-logged-in');
@@ -62,8 +65,8 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
 
     const steps = getTaskSteps('reply_to_post', { platform: platformLabel, avatar });
 
-    // ── Step 3: Find reply button ───────────────────────────────────────────
-    console.log('[reply] Step 3: Finding reply button');
+    // ── Step 3: Find reply input ────────────────────────────────────────────
+    console.log('[reply] Step 3: Finding reply input');
 
     // Brief anti-detection pause + small scroll to make post visible
     await randomDelay(500, 1200);
@@ -74,9 +77,10 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
 
     const replyBtnStep = steps.find((s) => s.id === 'find_reply_button');
     const replyBtnResult = await aiAction(page, replyBtnStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step3-find-reply-input');
 
     if (replyBtnResult.action === 'error') {
-      return { status: 'error', error: `Could not find reply button: ${replyBtnResult.reasoning}` };
+      return { status: 'error', error: `Could not find reply input: ${replyBtnResult.reasoning}` };
     }
 
     if (replyBtnResult.action === 'click' && replyBtnResult.x && replyBtnResult.y) {
@@ -88,6 +92,7 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     console.log('[reply] Step 4: Confirming reply input');
     const typeStep = steps.find((s) => s.id === 'type_reply');
     const typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step4-input-ready');
 
     if (typeCheck.action === 'error') {
       return { status: 'error', error: `Reply input not ready: ${typeCheck.reasoning}` };
@@ -102,11 +107,13 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     console.log('[reply] Step 5: Typing reply');
     await humanType(page, text);
     await randomDelay(600, 1400);
+    await saveStepScreenshot(page, aiOptions, 'step5-typed');
 
     // ── Step 6: Submit reply ────────────────────────────────────────────────
     console.log('[reply] Step 6: Submitting reply');
     const submitStep = steps.find((s) => s.id === 'submit_reply');
     const submitResult = await aiAction(page, submitStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step6-before-submit');
 
     if (submitResult.action === 'error') {
       return { status: 'error', error: `Could not find reply submit button: ${submitResult.reasoning}` };
@@ -119,11 +126,13 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     }
 
     await randomDelay(2000, 4000);
+    await saveStepScreenshot(page, aiOptions, 'step6-after-submit');
 
     // ── Step 7: Verify reply posted ─────────────────────────────────────────
     console.log('[reply] Step 7: Verifying reply');
     const verifyStep = steps.find((s) => s.id === 'verify_reply');
     const verifyResult = await aiAction(page, verifyStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step7-verify');
 
     if (verifyResult.status === 'post_success' || verifyResult.confidence >= 0.8) {
       console.log(`[reply] Successfully replied for ${avatar} on ${platform}`);

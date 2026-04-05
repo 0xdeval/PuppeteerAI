@@ -171,6 +171,39 @@ async function cleanupOldTempFiles() {
   }
 }
 
+/**
+ * Dismisses cookie consent banners if present.
+ * Tries to click the "Refuse" / "Reject" option to avoid accepting tracking.
+ * Safe to call even if no banner is present.
+ * @param {import('playwright').Page} page
+ */
+async function dismissCookieBanner(page) {
+  const refuseSelectors = [
+    // X / Twitter GDPR banner
+    'button:has-text("Refuse non-essential cookies")',
+    'button:has-text("Reject all")',
+    'button:has-text("Reject non-essential")',
+    // Generic fallbacks
+    'button:has-text("Decline")',
+    'button:has-text("Reject")',
+  ];
+
+  for (const selector of refuseSelectors) {
+    try {
+      const btn = page.locator(selector).first();
+      const visible = await btn.isVisible({ timeout: 2000 });
+      if (visible) {
+        await btn.click();
+        console.log(`[utils] Cookie banner dismissed via: ${selector}`);
+        await randomDelay(500, 1000);
+        return;
+      }
+    } catch {
+      // not found, try next selector
+    }
+  }
+}
+
 module.exports = {
   randomDelay,
   gaussianRandom,
@@ -181,4 +214,5 @@ module.exports = {
   downloadImage,
   cleanupTempFile,
   cleanupOldTempFiles,
+  dismissCookieBanner,
 };

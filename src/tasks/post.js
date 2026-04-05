@@ -5,7 +5,7 @@ const path = require('path');
 const { aiAction } = require('../ai/vision');
 const { getTaskSteps } = require('../ai/prompts');
 const { checkSession } = require('./session');
-const { humanType, randomDelay } = require('../utils');
+const { humanType, randomDelay, dismissCookieBanner } = require('../utils');
 
 const DEBUG_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data'), 'debug');
 const SAVE_DEBUG = process.env.SAVE_DEBUG_SCREENSHOTS !== 'false';
@@ -53,16 +53,20 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     const homeUrl = PLATFORM_HOME_URLS[platform.toLowerCase()] || `https://${platform}.com/`;
     await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await randomDelay(1000, 2500);
+    await dismissCookieBanner(page);
+    await saveStepScreenshot(page, aiOptions, 'step1-navigated');
 
     // URL-based check: if X redirected us away from /home, cookies aren't working
     const finalUrl = page.url();
     console.log(`[post] Landed on: ${finalUrl}`);
     if (finalUrl.includes('/login') || finalUrl.includes('/flow/login') || finalUrl.includes('signin')) {
       console.log(`[post] Redirected to login page — cookies invalid or expired`);
+      await saveStepScreenshot(page, aiOptions, 'error-redirected-to-login');
       return { status: 'login_expired', error: 'Redirected to login page. Cookies are invalid or expired — re-import auth_token and ct0.' };
     }
 
     const session = await checkSession(page, platformLabel, llmClient, { avatar });
+    await saveStepScreenshot(page, aiOptions, 'step1-session-check');
 
     if (!session.logged_in) {
       console.log(`[post] Session check failed: ${session.reasoning}`);
@@ -88,6 +92,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     console.log('[post] Step 3: Finding compose button');
     const composeStep = steps.find((s) => s.id === 'find_compose_button');
     const composeResult = await aiAction(page, composeStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step3-find-compose');
 
     if (composeResult.action === 'error') {
       return { status: 'error', error: `Could not find compose button: ${composeResult.reasoning}` };
@@ -110,13 +115,13 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     // If AI can't find the compose area, wait longer and retry once
     if (typeCheck.action === 'error') {
       console.log('[post] Compose area not ready, waiting and retrying...');
-      await saveStepScreenshot(page, aiOptions, 'compose-not-ready');
+      await saveStepScreenshot(page, aiOptions, 'step4-compose-not-ready');
       await randomDelay(2000, 3000);
       typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
     }
 
     if (typeCheck.action === 'error') {
-      await saveStepScreenshot(page, aiOptions, 'compose-failed');
+      await saveStepScreenshot(page, aiOptions, 'step4-compose-failed');
       return { status: 'error', error: `Compose area not ready: ${typeCheck.reasoning}` };
     }
 
@@ -128,43 +133,39 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     // Type text with human-like behaviour
     await humanType(page, text);
     await randomDelay(500, 1200);
+    await saveStepScreenshot(page, aiOptions, 'step4-typed');
 
     // ── Step 5 & 6: Attach image (if provided) ──────────────────────────────
     if (imagePath) {
       console.log('[post] Step 5: Attaching image');
 
-      // First ask AI to find the image attachment button
       const attachStep = steps.find((s) => s.id === 'attach_image');
       const attachResult = await aiAction(page, attachStep.instruction, aiOptions);
+      await saveStepScreenshot(page, aiOptions, 'step5-attach-image');
 
-      // Check if image already attached
       if (attachResult.status !== 'image_attached') {
-        // Try clicking the AI-identified attachment button
         if (attachResult.action === 'click' && attachResult.x && attachResult.y) {
           await page.mouse.click(attachResult.x, attachResult.y);
           await randomDelay(400, 800);
         }
 
-        // Use the file input directly — standard HTML element, platform-agnostic
         try {
           const fileInput = page.locator('input[type="file"]').first();
           await fileInput.setInputFiles(imagePath, { timeout: 10000 });
           console.log('[post] Step 5: Image set via file input');
         } catch (fileErr) {
           console.warn('[post] Could not set file input:', fileErr.message);
-          // Non-fatal: continue without image
         }
 
         await randomDelay(1500, 3000);
 
-        // Step 6: Verify image uploaded
         console.log('[post] Step 6: Verifying image upload');
-        const verifyStep = steps.find((s) => s.id === 'verify_image');
-        const verifyResult = await aiAction(page, verifyStep.instruction, aiOptions);
+        const verifyImageStep = steps.find((s) => s.id === 'verify_image');
+        const verifyImageResult = await aiAction(page, verifyImageStep.instruction, aiOptions);
+        await saveStepScreenshot(page, aiOptions, 'step6-verify-image');
 
-        if (verifyResult.action === 'error') {
-          console.warn('[post] Image verification failed:', verifyResult.reasoning);
-          // Non-fatal: proceed without image rather than aborting the post
+        if (verifyImageResult.action === 'error') {
+          console.warn('[post] Image verification failed:', verifyImageResult.reasoning);
         }
       }
     }
@@ -175,6 +176,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
 
     const postBtnStep = steps.find((s) => s.id === 'click_post_button');
     const postBtnResult = await aiAction(page, postBtnStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step7-before-submit');
 
     if (postBtnResult.action === 'error') {
       return { status: 'error', error: `Could not find post button: ${postBtnResult.reasoning}` };
@@ -183,16 +185,17 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     if (postBtnResult.action === 'click' && postBtnResult.x && postBtnResult.y) {
       await page.mouse.click(postBtnResult.x, postBtnResult.y);
     } else if (postBtnResult.action !== 'none') {
-      // Attempt keyboard shortcut as fallback
       await page.keyboard.press('Control+Enter');
     }
 
     await randomDelay(2000, 4000);
+    await saveStepScreenshot(page, aiOptions, 'step7-after-submit');
 
     // ── Step 8: Verify post success ─────────────────────────────────────────
     console.log('[post] Step 8: Verifying post');
     const verifyPostStep = steps.find((s) => s.id === 'verify_post');
     const verifyPostResult = await aiAction(page, verifyPostStep.instruction, aiOptions);
+    await saveStepScreenshot(page, aiOptions, 'step8-verify');
 
     if (verifyPostResult.status === 'post_success' || verifyPostResult.confidence >= 0.8) {
       console.log(`[post] Successfully posted for ${avatar} on ${platform}`);
@@ -203,7 +206,6 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       };
     }
 
-    // Check if we got logged out during the posting attempt
     if (verifyPostResult.status === 'session_expired' || verifyPostResult.status === 'logged_out') {
       await saveStepScreenshot(page, aiOptions, 'error-session-expired');
       return { status: 'login_expired', error: 'Session expired during posting.' };
