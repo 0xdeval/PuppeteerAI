@@ -29,6 +29,40 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
       fallbackModel,
     });
   }
+
+  async _callApi(model, imageBase64, instruction) {
+    const completion = await this.client.chat.completions.create({
+      model,
+      max_tokens: 1024,
+      // Ollama's JSON mode — forces the model to output valid JSON.
+      // Works on the /v1 OpenAI-compatible endpoint for supported models.
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: require('../prompts').SYSTEM_PROMPT,
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/png;base64,${imageBase64}`,
+                detail: 'high',
+              },
+            },
+            {
+              type: 'text',
+              text: instruction,
+            },
+          ],
+        },
+      ],
+    });
+
+    return completion.choices[0].message.content;
+  }
 }
 
 module.exports = { OllamaVisionProvider };

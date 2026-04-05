@@ -51,6 +51,18 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Like requireAuth but also accepts ?key= query param (for browser-friendly debug routes)
+function requireAuthOrQuery(req, res, next) {
+  if (!API_SECRET) {
+    return res.status(500).json({ error: 'API_SECRET not configured on server.' });
+  }
+  const key = req.headers['x-api-key'] || req.query.key;
+  if (!key || key !== API_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized. Provide a valid x-api-key header or ?key= query param.' });
+  }
+  next();
+}
+
 // ─── Helper: build or retrieve profile ───────────────────────────────────────
 
 /**
@@ -334,6 +346,45 @@ app.post('/login/:profileId/complete', requireAuth, async (req, res) => {
     console.error('[server] /login complete error:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /debug/:filename — serve debug screenshots saved by the vision module
+app.get('/debug/:filename', requireAuthOrQuery, (req, res) => {
+  const { filename } = req.params;
+
+  // Only allow .png files and reject path traversal attempts
+  if (!/^[\w\-.:]+\.png$/i.test(filename)) {
+    return res.status(400).json({ error: 'Invalid filename.' });
+  }
+
+  const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+  const filepath = path.join(DATA_DIR, 'debug', filename);
+
+  if (!fs.existsSync(filepath)) {
+    return res.status(404).json({ error: 'Debug screenshot not found.' });
+  }
+
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'no-store');
+  fs.createReadStream(filepath).pipe(res);
+});
+
+// GET /debug — list all saved debug screenshots
+app.get('/debug', requireAuthOrQuery, (req, res) => {
+  const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+  const debugDir = path.join(DATA_DIR, 'debug');
+
+  if (!fs.existsSync(debugDir)) {
+    return res.json({ screenshots: [] });
+  }
+
+  const files = fs.readdirSync(debugDir)
+    .filter((f) => f.endsWith('.png'))
+    .sort()
+    .reverse() // newest first
+    .map((f) => ({ filename: f, url: `/debug/${f}` }));
+
+  res.json({ screenshots: files });
 });
 
 // ─── Error handler ────────────────────────────────────────────────────────────
