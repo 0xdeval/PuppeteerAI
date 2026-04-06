@@ -91,7 +91,15 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     // ── Step 3: Find and click compose button ───────────────────────────────
     console.log('[post] Step 3: Finding compose button');
     const composeStep = steps.find((s) => s.id === 'find_compose_button');
-    const composeResult = await aiAction(page, composeStep.instruction, aiOptions);
+    let composeResult = await aiAction(page, composeStep.instruction, aiOptions);
+
+    // If page is still loading, wait and retry once
+    if (composeResult.action === 'wait') {
+      console.log('[post] Step 3: Page still loading, waiting...');
+      await randomDelay(3000, 5000);
+      composeResult = await aiAction(page, composeStep.instruction, aiOptions);
+    }
+
     await saveStepScreenshot(page, aiOptions, 'step3-find-compose');
 
     if (composeResult.action === 'error') {

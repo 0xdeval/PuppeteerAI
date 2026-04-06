@@ -100,9 +100,16 @@ Return confidence 1.0 only if you are absolutely certain.`,
       {
         id: 'find_compose_button',
         instruction: `You are looking at a screenshot of X (Twitter).
-Find and click the "Post" button in the left sidebar to open the compose dialog.
-It is a prominent button, usually dark or black, labeled "Post".
-If the compose dialog is already open and the text area (placeholder: "What's happening?") is visible, use action "none" and status "ready_to_type".`,
+Your goal is to open the post compose dialog. There are three ways it can appear depending on the layout:
+
+1. A black button labeled "Post" in the left sidebar (expanded sidebar layout)
+2. A black circular button with a feather/pencil/compose icon at the bottom of the left sidebar (collapsed icon-only sidebar layout)
+3. A "What's happening?" text input area already visible in the feed — if you see it, click directly on it
+
+Click whichever of these three you can see. Priority: "What's happening?" input first (already open), then "Post" button or feather icon.
+
+If the page is still loading (spinner visible, feed not yet rendered), return action "wait".
+If the compose dialog is already open with a text area showing "What's happening?", return action "none" and status "ready_to_type".`,
       },
       {
         id: 'type_post_text',
