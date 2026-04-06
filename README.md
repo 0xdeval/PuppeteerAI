@@ -53,7 +53,7 @@ Server listens on `http://localhost:3001`.
 
 ---
 
-## Running with Docker
+## Running with Docker (local / VPS)
 
 Use Docker when deploying to a VPS or when you want an isolated, reproducible environment. noVNC is included in the Docker image for remote manual login.
 
@@ -77,6 +77,80 @@ Data (browser profiles, registry) is stored in a Docker volume and survives rest
 | 6080 | noVNC (remote browser for manual login) |
 
 > For VPS deployments, keep port 6080 behind a firewall or SSH tunnel — never expose it publicly.
+
+---
+
+## Deploying to RunPod (GPU — Ollama LLM)
+
+For GPU-accelerated deployments using the local `qwen2.5-vl:14b` model via Ollama, use the pre-built RunPod image defined in `Dockerfile.runpod`.
+
+### Why a custom image?
+
+The base RunPod startup script downloads the model (~8-9 GB) every cold start, taking 3-10 minutes. The custom image bakes in the model at build time so startup takes **under 1 minute**.
+
+### Build and push the image
+
+```bash
+# Build (first time takes 15-30 min — model download is ~8-9 GB)
+# --platform linux/amd64 is required when building on Apple Silicon (M1/M2/M3/M4)
+docker build --platform linux/amd64 -f Dockerfile.runpod -t yourdockerhubuser/avatar-worker:latest .
+
+# Push to Docker Hub
+docker login
+docker push yourdockerhubuser/avatar-worker:latest
+
+# Subsequent builds are fast — model layer is cached, only npm layer rebuilds
+```
+
+Replace `yourdockerhubuser` with your actual Docker Hub username.
+
+### RunPod API request body (n8n)
+
+```json
+{
+  "cloudType": "COMMUNITY",
+  "gpuCount": 1,
+  "gpuTypeIds": ["NVIDIA GeForce RTX 3090", "NVIDIA GeForce RTX 4090", "NVIDIA GeForce RTX 3090 Ti", "NVIDIA RTX A5000", "NVIDIA RTX A6000"],
+  "imageName": "yourdockerhubuser/avatar-worker:latest",
+  "dataCenterIds": ["EU-RO-1", "EU-SE-1", "EUR-IS-1", "EU-CZ-1", "EUR-IS-2", "EUR-IS-3", "EUR-NO-1", "EU-FR-1"],
+  "containerDiskInGb": 30,
+  "volumeInGb": 0,
+  "ports": ["3001/http", "11434/http"],
+  "name": "Avatar-Worker-REST",
+  "env": {
+    "SSH_PRIVATE_KEY": "{{ $vars.GithubAuthToken}}",
+    "API_SECRET": "your-secret",
+    "LLM_PROVIDER": "ollama",
+    "LLM_BASE_URL": "http://localhost:11434/v1",
+    "LLM_MODEL_PRIMARY": "qwen2.5-vl:14b",
+    "LLM_MODEL_FALLBACK": "qwen2.5-vl:14b",
+    "PORT": "3001",
+    "DATA_DIR": "/app/data"
+  },
+  "dockerStartCmd": ["/entrypoint.sh"]
+}
+```
+
+### What happens at runtime (`runpod-entrypoint.sh`)
+
+1. SSH key from `SSH_PRIVATE_KEY` env var is written to `~/.ssh/id_rsa`
+2. Repo is cloned from `git@github.com:0xdeval/puppeteer.git` into `/app` (pre-installed `node_modules` are preserved)
+3. `/app/.env` is written from the env vars above
+4. Xvfb virtual display is started (required for headed Playwright sessions)
+5. Ollama is started — the model is already present so it's ready in ~10s
+6. `npm run start` launches the API
+
+### Startup time breakdown
+
+| Step | Time |
+| --- | --- |
+| SSH setup | ~2s |
+| `git clone` | ~5-10s |
+| `npm install` (diff only) | ~5s |
+| Ollama ready (model pre-loaded) | ~10s |
+| **Total** | **~30-45s** |
+
+Compared to **3-10 min** with the base image that downloads the model on every cold start.
 
 ---
 
