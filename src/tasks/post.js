@@ -45,6 +45,8 @@ const PLATFORM_HOME_URLS = {
 async function postContent(page, { platform, text, imagePath, avatar }, llmClient) {
   const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
   const aiOptions = { avatar: avatar || 'unknown', platform: platformLabel };
+  const isFacebook = platform.toLowerCase() === 'facebook';
+  const deferTypingUntilAfterImage = isFacebook && !!imagePath;
 
   try {
     // ── Step 1: Verify session ──────────────────────────────────────────────
@@ -86,6 +88,13 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       await randomDelay(500, 1200);
     }
 
+    // Facebook posting relies on the top-of-feed "What's on your mind?" entry point.
+    // Always return to top after anti-detection movement.
+    if (isFacebook) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await randomDelay(700, 1500);
+    }
+
     const steps = getTaskSteps('create_post', { platform: platformLabel, avatar });
 
     // ── Step 3: Find and click compose button ───────────────────────────────
@@ -97,6 +106,15 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     if (composeResult.action === 'wait') {
       console.log('[post] Step 3: Page still loading, waiting...');
       await randomDelay(3000, 5000);
+      composeResult = await aiAction(page, composeStep.instruction, aiOptions);
+    }
+
+    // Allow the model to recover by scrolling to reveal top-of-feed compose entry.
+    if (composeResult.action === 'scroll') {
+      const amount = Math.max(200, Math.min(1200, composeResult.scroll_amount || 700));
+      const direction = composeResult.scroll_direction === 'up' ? -1 : 1;
+      await page.evaluate((dy) => window.scrollBy(0, dy), direction * amount);
+      await randomDelay(800, 1500);
       composeResult = await aiAction(page, composeStep.instruction, aiOptions);
     }
 
@@ -112,13 +130,25 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     }
 
     // ── Step 4: Type post text ──────────────────────────────────────────────
-    console.log('[post] Step 4: Typing post text');
+    console.log(
+      deferTypingUntilAfterImage
+        ? '[post] Step 4: Preparing compose area (typing deferred until after image)'
+        : '[post] Step 4: Typing post text'
+    );
 
     // Wait for compose modal/area to fully render before checking
     await randomDelay(2000, 3500);
 
     const typeStep = steps.find((s) => s.id === 'type_post_text');
     let typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+
+    if (typeCheck.action === 'scroll') {
+      const amount = Math.max(200, Math.min(1200, typeCheck.scroll_amount || 700));
+      const direction = typeCheck.scroll_direction === 'up' ? -1 : 1;
+      await page.evaluate((dy) => window.scrollBy(0, dy), direction * amount);
+      await randomDelay(800, 1500);
+      typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+    }
 
     // If AI can't find the compose area, wait longer and retry once
     if (typeCheck.action === 'error') {
@@ -138,10 +168,14 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       await randomDelay(400, 800);
     }
 
-    // Type text with human-like behaviour
-    await humanType(page, text);
-    await randomDelay(500, 1200);
-    await saveStepScreenshot(page, aiOptions, 'step4-typed');
+    if (!deferTypingUntilAfterImage) {
+      // Type text with human-like behaviour
+      await humanType(page, text);
+      await randomDelay(500, 1200);
+      await saveStepScreenshot(page, aiOptions, 'step4-typed');
+    } else {
+      await saveStepScreenshot(page, aiOptions, 'step4-compose-ready');
+    }
 
     // ── Step 5 & 6: Attach image (if provided) ──────────────────────────────
     if (imagePath) {
@@ -176,6 +210,31 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
           console.warn('[post] Image verification failed:', verifyImageResult.reasoning);
         }
       }
+    }
+
+    // On Facebook, typing before image attach can be lost. Type after image attach.
+    if (deferTypingUntilAfterImage) {
+      console.log('[post] Step 6b: Typing text after image attach');
+      let postAttachTypeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+
+      if (postAttachTypeCheck.action === 'error') {
+        await randomDelay(1200, 2200);
+        postAttachTypeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+      }
+
+      if (postAttachTypeCheck.action === 'error') {
+        await saveStepScreenshot(page, aiOptions, 'step6b-compose-not-ready');
+        return { status: 'error', error: `Compose area not ready after image attach: ${postAttachTypeCheck.reasoning}` };
+      }
+
+      if (postAttachTypeCheck.action === 'click' && postAttachTypeCheck.x && postAttachTypeCheck.y) {
+        await page.mouse.click(postAttachTypeCheck.x, postAttachTypeCheck.y);
+        await randomDelay(400, 800);
+      }
+
+      await humanType(page, text);
+      await randomDelay(500, 1200);
+      await saveStepScreenshot(page, aiOptions, 'step6b-typed-after-image');
     }
 
     // ── Step 7: Click post button ───────────────────────────────────────────

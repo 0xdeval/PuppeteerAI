@@ -17,6 +17,28 @@ class AnthropicVisionProvider {
   }
 
   /**
+   * Sends a text-only message to Claude and returns the parsed JSON response.
+   * Used for HTML extraction tasks where no screenshot is needed.
+   *
+   * @param {string} systemPrompt  - System instruction.
+   * @param {string} userMessage   - User message (e.g. cleaned HTML + extraction instruction).
+   * @param {boolean} [useFallback]
+   * @returns {Promise<any>} Parsed JSON.
+   */
+  async analyzeText(systemPrompt, userMessage, useFallback = false) {
+    const model = useFallback ? this.fallbackModel : this.primaryModel;
+
+    const message = await this.client.messages.create({
+      model,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    return this._parseResponse(message.content[0].text);
+  }
+
+  /**
    * Analyzes a screenshot with a vision-capable Claude model.
    *
    * @param {object} params

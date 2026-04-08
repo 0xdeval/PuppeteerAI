@@ -19,6 +19,7 @@ const {
 const { startLoginSession, completeLoginSession } = require('./src/login');
 const { postContent } = require('./src/tasks/post');
 const { replyToPost } = require('./src/tasks/reply');
+const { scrapeProfilePosts } = require('./src/tasks/scrape');
 const {
   generateProfileId,
   downloadImage,
@@ -242,6 +243,54 @@ app.post('/reply', requireAuth, async (req, res) => {
     return res.status(500).json({ error: result.error || 'Reply failed for unknown reason.' });
   } catch (err) {
     console.error('[server] /reply error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /scrape
+// Navigates to a Facebook profile URL and returns all posts visible in the DOM
+// at that moment (no scrolling). Call repeatedly after scrolling to paginate.
+app.post('/scrape', requireAuth, async (req, res) => {
+  const { platform, avatar, profile_url } = req.body;
+
+  if (!platform || !avatar || !profile_url) {
+    return res.status(400).json({ error: 'platform, avatar, and profile_url are required.' });
+  }
+
+  const { profileId } = ensureProfile(platform, avatar);
+
+  try {
+    let result;
+
+    try {
+      result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
+        return await scrapeProfilePosts(page, { profile_url, avatar });
+      });
+    } catch (browserErr) {
+      if (browserErr.code === 'PROFILE_BUSY') {
+        return res.status(429).json({ error: browserErr.message, retryAfter: 30 });
+      }
+      if (browserErr.code === 'BROWSER_TIMEOUT') {
+        return res.status(504).json({ error: 'Browser task timed out.' });
+      }
+      throw browserErr;
+    }
+
+    if (result.status === 'ok') {
+      return res.json({ success: true, posts: result.posts, profileId });
+    }
+
+    if (result.status === 'login_required') {
+      return res.status(403).json({
+        error: result.error || 'Facebook requires login to view this page.',
+        needs_relogin: true,
+        profileId,
+      });
+    }
+
+    return res.status(500).json({ error: result.error || 'Scrape failed for unknown reason.' });
+  } catch (err) {
+    console.error('[server] /scrape error:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -110,9 +110,24 @@ Replace `yourdockerhubuser` with your actual Docker Hub username.
 {
   "cloudType": "COMMUNITY",
   "gpuCount": 1,
-  "gpuTypeIds": ["NVIDIA GeForce RTX 3090", "NVIDIA GeForce RTX 4090", "NVIDIA GeForce RTX 3090 Ti", "NVIDIA RTX A5000", "NVIDIA RTX A6000"],
+  "gpuTypeIds": [
+    "NVIDIA GeForce RTX 3090",
+    "NVIDIA GeForce RTX 4090",
+    "NVIDIA GeForce RTX 3090 Ti",
+    "NVIDIA RTX A5000",
+    "NVIDIA RTX A6000"
+  ],
   "imageName": "yourdockerhubuser/avatar-worker:latest",
-  "dataCenterIds": ["EU-RO-1", "EU-SE-1", "EUR-IS-1", "EU-CZ-1", "EUR-IS-2", "EUR-IS-3", "EUR-NO-1", "EU-FR-1"],
+  "dataCenterIds": [
+    "EU-RO-1",
+    "EU-SE-1",
+    "EUR-IS-1",
+    "EU-CZ-1",
+    "EUR-IS-2",
+    "EUR-IS-3",
+    "EUR-NO-1",
+    "EU-FR-1"
+  ],
   "containerDiskInGb": 30,
   "volumeInGb": 0,
   "ports": ["3001/http", "11434/http"],
@@ -142,13 +157,13 @@ Replace `yourdockerhubuser` with your actual Docker Hub username.
 
 ### Startup time breakdown
 
-| Step | Time |
-| --- | --- |
-| SSH setup | ~2s |
-| `git clone` | ~5-10s |
-| `npm install` (diff only) | ~5s |
-| Ollama ready (model pre-loaded) | ~10s |
-| **Total** | **~30-45s** |
+| Step                            | Time        |
+| ------------------------------- | ----------- |
+| SSH setup                       | ~2s         |
+| `git clone`                     | ~5-10s      |
+| `npm install` (diff only)       | ~5s         |
+| Ollama ready (model pre-loaded) | ~10s        |
+| **Total**                       | **~30-45s** |
 
 Compared to **3-10 min** with the base image that downloads the model on every cold start.
 
@@ -158,7 +173,7 @@ Compared to **3-10 min** with the base image that downloads the model on every c
 
 New avatars need a one-time session import before they can post automatically.
 
-### Recommended: Cookie Import (avoids bot detection)
+### Cookie Import (avoids bot detection and additional login)
 
 X and Facebook actively block login attempts from automated browsers. The reliable approach is to log in normally in your real Chrome, export the cookies, and import them into the service.
 
@@ -185,24 +200,7 @@ Profile status becomes `ready` immediately. The avatar can now post automaticall
 
 ---
 
-### Alternative: Manual Browser Login (noVNC / desktop window)
-
-If cookie export isn't an option, you can try the browser-based login. Note: X's login page may block automated browsers regardless of stealth settings.
-
-```bash
-# Step 1: Open a login browser session
-GET /login/x-john-firemool
-
-# → Locally: a Chrome window opens on your desktop. Log in manually.
-# → On VPS: connect to the noVNC URL returned in the response.
-
-# Step 2: After logging in successfully, complete the session
-POST /login/x-john-firemool/complete
-```
-
----
-
-Repeat for each avatar × platform combination (`x-sarah-blaze`, `fb-john-firemool`, etc.).
+Repeat for each avatar × platform combination (`x-sarah-blaze`, `facebook-john-firemool`, etc.).
 
 ---
 
@@ -213,6 +211,15 @@ All endpoints except `GET /health` require:
 ```
 x-api-key: <your API_SECRET>
 ```
+
+---
+
+## Platform Notes
+
+- Use platform values consistently as `x` or `facebook` in request bodies.
+- Keep profile IDs consistent with those platform values: `x-{avatar}` and `facebook-{avatar}`.
+- Facebook posting uses the top-feed composer entry (`"What's on your mind, ...?"`). The bottom-right circular edit/pencil button is treated as messaging UI and is intentionally avoided.
+- For Facebook posts with `image_url`, the service attaches the image first, then types text, to avoid copy disappearing after media attach.
 
 ---
 
@@ -256,6 +263,11 @@ curl -X POST http://localhost:3001/post \
 | `platform`  | Yes      | `x` or `facebook`                                       |
 | `text`      | Yes      | Post content                                            |
 | `image_url` | No       | Image to attach. Service downloads it before uploading. |
+
+**Platform-specific behaviour:**
+
+- `x`: compose from feed/sidebar, type text, optional image, then publish.
+- `facebook`: compose from top-feed `"What's on your mind, ...?"` entry. If scrolled down, the service scrolls up first. With `image_url`, image is attached before typing text.
 
 **Responses:**
 
@@ -341,7 +353,7 @@ The `cookies` array is the JSON exported directly from the [Cookie-Editor](https
 
 Open a browser for manual login. Creates the profile automatically if it doesn't exist yet.
 
-`profileId` format: `{platform}-{avatar}` — e.g. `x-john-firemool`, `fb-sarah-blaze`.
+`profileId` format: `{platform}-{avatar}` — e.g. `x-john-firemool`, `facebook-sarah-blaze`.
 
 ```bash
 curl http://localhost:3001/login/x-john-firemool \
@@ -400,7 +412,7 @@ curl http://localhost:3001/profiles \
       "lastUsed": "2026-04-03T10:00:00Z"
     },
     {
-      "profileId": "fb-john-firemool",
+      "profileId": "facebook-john-firemool",
       "platform": "facebook",
       "avatar": "john-firemool",
       "status": "needs_login",
@@ -483,3 +495,11 @@ Enforced per avatar per platform:
 8. If session expires         →  repeat steps 2-4 for that avatar
 9. Retire an avatar           →  DELETE /profiles/x-avatarname
 ```
+
+---
+
+## Quick Platform Guide
+
+For a short, platform-separated endpoint guide with ready-to-use examples, see:
+
+- [PLATFORM_ENDPOINTS_GUIDE.md](PLATFORM_ENDPOINTS_GUIDE.md)

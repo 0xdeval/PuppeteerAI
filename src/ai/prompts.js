@@ -164,29 +164,42 @@ Set status to "post_success" or "post_failed".`,
     facebook: [
       {
         id: 'find_compose_button',
-        instruction: `You are looking at a screenshot of Facebook.
-Find and click the "What's on your mind?" text area or "Create post" button to open the compose dialog.
-If the compose dialog is already open and ready for typing, use action "none" and status "ready_to_type".`,
+        instruction: `You are looking at a screenshot of Facebook home feed.
+Your goal is to open the post compose popup from the feed.
+
+Primary target:
+- The text input near the top of the feed that says "What's on your mind, [name]?" — click directly on it.
+
+If that input is not visible because the page is scrolled down, return action "scroll" with scroll_direction "up" and scroll_amount around 700 (do not return error yet).
+After scrolling up, click the "What's on your mind?" input when it becomes visible.
+
+Important disambiguation:
+- Do NOT click any bottom-right floating round button with edit/pencil icon; that is for messaging, not feed post composer.
+- Do NOT click Messenger/chat controls, notification badges, profile/avatar, or sidebar icons.
+
+If the compose popup/modal is already open with a text area inside it, return action "none" and status "ready_to_type".
+If the page is still loading, return action "wait".`,
       },
       {
         id: 'type_post_text',
         instruction: `You are looking at a screenshot of Facebook.
-The compose dialog should be open with a text area saying "What's on your mind?".
-Click the text area to focus it.
-If it already has a cursor or looks focused, use action "none" and status "ready_to_type".
-Only return action "error" if the compose dialog is not open at all.`,
+A compose popup/modal should now be open — it is an overlay dialog, not part of the main feed.
+Inside the modal there is a text area that says "What's on your mind?" — click it to focus it.
+If the text area already has a cursor or looks focused, return action "none" and status "ready_to_type".
+If the compose modal is not open and the feed view is visible, return action "scroll" with scroll_direction "up" to find the "What's on your mind?" entry point.
+Only return action "error" if the UI is blocked, loading indefinitely, or the compose entry cannot be found after scrolling.`,
       },
       {
         id: 'attach_image',
         instruction: `You are looking at a screenshot of Facebook.
-An image needs to be attached. Look for a "Photo/Video" button or camera icon in the compose dialog toolbar.
+An image needs to be attached. Look for a "Photo/Video" button or camera/photo icon in the toolbar inside the compose modal.
 Click it to open the file picker.
-If an image preview is already visible, return action "none" with status "image_attached".`,
+If an image preview is already visible inside the modal, return action "none" with status "image_attached".`,
       },
       {
         id: 'verify_image',
         instruction: `You are looking at a screenshot of Facebook.
-Check if an image has been successfully attached to the post.
+Check if an image has been successfully attached to the post inside the compose modal.
 Look for an image thumbnail or preview inside the compose dialog.
 If image is attached, return action "none" with status "image_attached" and confidence 0.9+.
 If no image is visible, return action "error" with reasoning explaining what you see.`,
@@ -194,8 +207,10 @@ If no image is visible, return action "error" with reasoning explaining what you
       {
         id: 'click_post_button',
         instruction: `You are looking at a screenshot of Facebook.
-The compose dialog is open and text has been typed. Find and click the "Post" button to publish.
-Do not click Cancel or Close.`,
+The compose modal is open and text has been typed. Find and click the "Post" button to publish.
+The Post button is blue (in light theme) and is located at the bottom of the compose modal.
+It becomes active/enabled only after text has been entered — if it looks greyed out, do not click it and return action "error".
+Do not click Cancel, Close, or any other button.`,
       },
       {
         id: 'verify_post',
@@ -203,12 +218,12 @@ Do not click Cancel or Close.`,
 Determine if the post was successfully published.
 
 Signs of SUCCESS:
-- Compose dialog is closed and the feed is visible
+- Compose modal is closed and the main feed is visible
 - The composed text now appears as a post in the feed
 
 Signs of FAILURE:
-- Compose dialog is still open with an error
-- A restriction or login prompt appeared
+- Compose modal is still open with an error message
+- A restriction notice or login prompt appeared
 
 Set status to "post_success" or "post_failed".`,
       },
