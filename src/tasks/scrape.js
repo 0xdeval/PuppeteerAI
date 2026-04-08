@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { AnthropicVisionProvider } = require('../ai/providers/anthropic');
+const { getPrimaryProvider } = require('../ai/vision');
 const { randomDelay } = require('../utils');
 
 const DEBUG_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data'), 'debug');
@@ -189,10 +189,7 @@ async function collectPostUrls(page) {
  * AI correlates them into structured posts (first URL = first post, etc.)
  */
 async function extractPostsWithAI(pageText, urls) {
-  const provider = new AnthropicVisionProvider({
-    apiKey: process.env.LLM_API_KEY,
-    baseURL: process.env.LLM_BASE_URL || undefined,
-  });
+  const provider = getPrimaryProvider();
 
   const truncatedText = pageText.length > MAX_TEXT_LENGTH
     ? pageText.slice(0, MAX_TEXT_LENGTH)

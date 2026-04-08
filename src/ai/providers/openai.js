@@ -42,6 +42,18 @@ class OpenAIVisionProvider {
     }
   }
 
+  async analyzeText(systemPrompt, userMessage) {
+    const completion = await this.client.chat.completions.create({
+      model: this.primaryModel,
+      max_tokens: 4096,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    });
+    return this._parseResponse(completion.choices[0].message.content);
+  }
+
   async _callApi(model, imageBase64, instruction) {
     const completion = await this.client.chat.completions.create({
       model,

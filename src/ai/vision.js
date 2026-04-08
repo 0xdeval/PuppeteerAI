@@ -155,4 +155,4 @@ async function aiAction(page, instruction, options = {}) {
   throw new Error(`AI action failed after ${maxRetries} attempts: ${lastError?.message}`);
 }
 
-module.exports = { aiAction };
+module.exports = { aiAction, getPrimaryProvider };
