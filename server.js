@@ -402,7 +402,7 @@ app.get('/debug/:filename', requireAuthOrQuery, (req, res) => {
   const { filename } = req.params;
 
   // Only allow .png files and reject path traversal attempts
-  if (!/^[\w\-.:]+\.png$/i.test(filename)) {
+  if (!/^[\p{L}\p{N}\w\-.:]+\.png$/iu.test(filename)) {
     return res.status(400).json({ error: 'Invalid filename.' });
   }
 
@@ -431,7 +431,7 @@ app.get('/debug', requireAuthOrQuery, (req, res) => {
     .filter((f) => f.endsWith('.png'))
     .sort()
     .reverse() // newest first
-    .map((f) => ({ filename: f, url: `/debug/${f}` }));
+    .map((f) => ({ filename: f, url: `/debug/${encodeURIComponent(f)}` }));
 
   res.json({ screenshots: files });
 });
