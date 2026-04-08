@@ -47,5 +47,4 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/puppeteer:latest
           # Cache layers in GitHub Actions cache (avoids Docker Hub 10GB blob limit)
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true

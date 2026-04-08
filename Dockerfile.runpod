@@ -44,14 +44,16 @@ RUN curl -fsSL https://ollama.com/install.sh | sh
 # Store models in a fixed path so entrypoint.sh can find them at runtime.
 # This layer is ~8-9 GB and is the whole point of the custom image.
 ENV OLLAMA_MODELS=/ollama-models
-RUN ollama serve & \
-    OLLAMA_PID=$! && \
-    echo "[build] Waiting for Ollama to start..." && \
-    until ollama list >/dev/null 2>&1; do sleep 2; done && \
-    echo "[build] Pulling qwen2.5-vl:14b (~8-9 GB, this takes a while)..." && \
-    ollama pull qwen2.5-vl:14b && \
-    echo "[build] Model downloaded successfully." && \
-    kill $OLLAMA_PID 2>/dev/null || true
+RUN bash -c '\
+    ollama serve & OLLAMA_PID=$!; \
+    echo "[build] Waiting for Ollama to start..."; \
+    until ollama list >/dev/null 2>&1; do sleep 2; done; \
+    echo "[build] Pulling qwen2.5-vl:14b (~8-9 GB, this takes a while)..."; \
+    ollama pull qwen2.5-vl:14b; \
+    STATUS=$?; \
+    kill $OLLAMA_PID 2>/dev/null; \
+    echo "[build] Pull exit status: $STATUS"; \
+    exit $STATUS'
 
 # ─── Pre-install Node dependencies ───────────────────────────────────────────
 # Copy only package.json so this layer is cached independently of source code.
