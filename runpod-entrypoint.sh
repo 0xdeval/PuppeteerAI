@@ -80,6 +80,14 @@ done
 log "Ollama ready. Loaded models:"
 ollama list
 
+# Pull model if not already present (fallback if it wasn't baked into the image)
+MODEL="${LLM_MODEL_PRIMARY:-qwen2.5-vl:14b}"
+if ! ollama list | grep -q "$MODEL"; then
+    log "Model $MODEL not found — pulling now (this may take a while)..."
+    ollama pull "$MODEL"
+    log "Model $MODEL pulled successfully."
+fi
+
 # ─── Cleanup on container exit ────────────────────────────────────────────────
 cleanup() {
     log "Shutting down..."
