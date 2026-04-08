@@ -6,7 +6,7 @@ const { chromium } = require('playwright-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { Mutex } = require('async-mutex');
 const { getRandomUserAgent, randomViewport } = require('./utils');
-const { profileDir } = require('./profiles');
+const { profileDir, getProfile } = require('./profiles');
 
 // Apply stealth plugin to playwright-extra
 chromium.use(StealthPlugin());
@@ -81,6 +81,12 @@ async function launchBrowser(profileId, options = {}) {
     baseArgs.push('--disable-gpu', '--disable-dev-shm-usage');
   }
 
+  const profile = getProfile(profileId);
+  const proxy = profile?.proxy ? { server: profile.proxy } : undefined;
+  if (proxy) {
+    console.log(`[browser] Using proxy for ${profileId}: ${profile.proxy}`);
+  }
+
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless,
     executablePath,   // undefined = use Playwright's Chromium (headless mode)
@@ -91,6 +97,7 @@ async function launchBrowser(profileId, options = {}) {
     timezoneId: 'America/New_York',
     permissions: ['notifications'],
     ignoreHTTPSErrors: false,
+    proxy,
   });
 
   // Mask automation signals

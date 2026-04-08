@@ -328,7 +328,12 @@ app.post('/profiles/:profileId/cookies', requireAuth, async (req, res) => {
     fs.mkdirSync(profileDir(profileId), { recursive: true });
     fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2), 'utf8');
 
-    updateProfile(profileId, { status: 'ready', lastLoginAt: new Date().toISOString() });
+    const { proxy } = req.body;
+    updateProfile(profileId, {
+      status: 'ready',
+      lastLoginAt: new Date().toISOString(),
+      ...(proxy ? { proxy } : {}),
+    });
 
     res.json({
       status: 'ready',

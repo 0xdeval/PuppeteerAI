@@ -27,6 +27,17 @@ Notes:
 - Best source is full JSON export from Cookie-Editor (`Export as JSON`) with no transformation.
 - Keep all cookies for the site, not only one or two.
 - `expires` is Unix timestamp in seconds (`-1` is session cookie).
+- Always include the `proxy` field if you logged in through a proxy — automation will use the same IP, preventing account blocks due to IP mismatch.
+
+### Proxy setup (recommended)
+
+Platforms detect when a session moves between IPs (e.g. logged in on your Mac, automated from RunPod). To avoid temporary blocks:
+
+1. Get a proxy from [Webshare](https://webshare.io) (free tier: 10 proxies)
+2. Install the Webshare Chrome extension and whitelist your home IP under **Proxy Settings → IP Authorizations**
+3. Log in to the social account with the proxy active in Chrome
+4. Export cookies with Cookie-Editor
+5. Import cookies with the `proxy` field set — the server uses the same proxy for all automation
 
 ### X cookie import example
 
@@ -54,7 +65,8 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
         "secure": true,
         "sameSite": "Lax"
       }
-    ]
+    ],
+    "proxy": "http://username:password@31.59.20.176:6754"
   }'
 ```
 
@@ -84,7 +96,8 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
         "secure": true,
         "sameSite": "None"
       }
-    ]
+    ],
+    "proxy": "http://username:password@31.59.20.176:6754"
   }'
 ```
 
@@ -94,13 +107,13 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
 
 ### 1) Prepare session - import cookies from a profile
 
-Import cookies:
+Import cookies (include `proxy` if you logged in through one):
 
 ```bash
 curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{ "cookies": [ ... ] }'
+  -d '{ "cookies": [ ... ], "proxy": "http://user:pass@host:port" }'
 ```
 
 ### 2) Create personal post
@@ -138,13 +151,13 @@ curl -X POST http://localhost:3001/reply \
 
 ### 1) Prepare session - import cookies
 
-Import cookies:
+Import cookies (include `proxy` if you logged in through one):
 
 ```bash
 curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{ "cookies": [ ... ] }'
+  -d '{ "cookies": [ ... ], "proxy": "http://user:pass@host:port" }'
 ```
 
 ### 2) Create a personal post

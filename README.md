@@ -177,7 +177,23 @@ New avatars need a one-time session import before they can post automatically.
 
 X and Facebook actively block login attempts from automated browsers. The reliable approach is to log in normally in your real Chrome, export the cookies, and import them into the service.
 
-**Step 1 — Install the [Cookie-Editor](https://cookie-editor.com) extension** in your regular Chrome browser.
+> **Important — IP consistency:** Platforms track the IP address associated with each session. If you log in from one IP and then automate from a different IP (e.g. your Mac vs. a RunPod server), the account may be temporarily blocked. To prevent this, use the **same residential proxy** for both login on your machine and automation on RunPod. See the proxy setup steps below.
+
+#### Proxy Setup (recommended to avoid IP mismatch blocks)
+
+**Step 1 — Get a proxy.** [Webshare](https://webshare.io) offers a free tier with 10 proxies. After signing up, go to **Proxy List** to get your proxy credentials (`ip:port:username:password`).
+
+**Step 2 — Install Webshare's Chrome extension.** On the Webshare dashboard, click **"Enhance Browsing with Chrome Extension → Install it Free"**. This routes your Chrome traffic through the proxy without auth issues.
+
+**Step 3 — Whitelist your home IP on Webshare.** Go to **Proxy Settings → IP Authorizations** → add your current IP. This allows the proxy to work without credentials in the browser extension.
+
+**Step 4 — Activate the proxy** in the Webshare extension before logging in.
+
+**Step 5 — Verify** by visiting `ip.me` — you should see the proxy IP, not your real one.
+
+#### Cookie Import Steps
+
+**Step 1 — Install the [Cookie-Editor](https://cookie-editor.com) extension** in Chrome (with proxy active).
 
 **Step 2 — Log into X (or Facebook) normally** in that browser as the avatar account.
 
@@ -187,14 +203,19 @@ X and Facebook actively block login attempts from automated browsers. The reliab
 - Click **Export → Export as JSON**
 - This copies the cookies JSON to your clipboard
 
-**Step 4 — Import into the service:**
+**Step 4 — Import into the service, including the proxy:**
 
 ```bash
 curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{ "cookies": [ <paste your cookies array here> ] }'
+  -d '{
+    "cookies": [ <paste your cookies array here> ],
+    "proxy": "http://username:password@31.59.20.176:6754"
+  }'
 ```
+
+The `proxy` field tells the automation server to use the same IP for all future requests for this profile — so the platform always sees a consistent IP.
 
 Profile status becomes `ready` immediately. The avatar can now post automatically.
 
@@ -332,11 +353,14 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
     "cookies": [
       { "name": "auth_token", "value": "abc123", "domain": ".x.com", ... },
       ...
-    ]
+    ],
+    "proxy": "http://username:password@31.59.20.176:6754"
   }'
 ```
 
 The `cookies` array is the JSON exported directly from the [Cookie-Editor](https://cookie-editor.com) browser extension — no transformation needed.
+
+The optional `proxy` field stores a proxy for this profile so all automation uses the same IP the account was logged in from. Format: `http://user:pass@host:port`. Strongly recommended when logging in on one machine and automating from another (e.g. local Mac → RunPod).
 
 ```json
 {
