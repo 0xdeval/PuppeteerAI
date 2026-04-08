@@ -45,13 +45,16 @@ RUN curl -fsSL https://ollama.com/install.sh | sh
 # This layer is ~8-9 GB and is the whole point of the custom image.
 ENV OLLAMA_MODELS=/ollama-models
 RUN bash -c '\
+    echo "[build] Disk space before pull:"; df -h /; \
+    mkdir -p /ollama-models && chmod 755 /ollama-models; \
     ollama serve & OLLAMA_PID=$!; \
     echo "[build] Waiting for Ollama to start..."; \
     until ollama list >/dev/null 2>&1; do sleep 2; done; \
-    echo "[build] Pulling qwen2.5-vl:14b (~8-9 GB, this takes a while)..."; \
+    echo "[build] Ollama ready. Pulling qwen2.5-vl:14b..."; \
     ollama pull qwen2.5-vl:14b; \
     STATUS=$?; \
     kill $OLLAMA_PID 2>/dev/null; \
+    echo "[build] Disk space after pull:"; df -h /; \
     echo "[build] Pull exit status: $STATUS"; \
     exit $STATUS'
 
