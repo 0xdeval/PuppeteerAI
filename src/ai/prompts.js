@@ -74,7 +74,7 @@ Return confidence 1.0 only if you are absolutely certain.`,
 Signs of being LOGGED IN:
 - News feed with posts visible
 - Top navigation bar with Home, profile name/avatar, notifications
-- A "What's on your mind?" compose area visible
+- A compose area visible — may say "What's on your mind?" (English) or "Что у вас нового?" (Russian) or similar in any language
 
 Signs of being LOGGED OUT:
 - A login form with email and password fields
@@ -165,29 +165,32 @@ Set status to "post_success" or "post_failed".`,
       {
         id: 'find_compose_button',
         instruction: `You are looking at a screenshot of Facebook home feed.
-Your goal is to open the post compose popup from the feed.
+Your goal is to click the input field near the top of the feed to open the post compose popup.
 
-Primary target:
-- The text input near the top of the feed that says "What's on your mind, [name]?" — click directly on it.
+Look for an input field that contains one of these placeholder texts:
+- "Что у вас нового, ...?" (Russian)
+- "What's on your mind, ...?" (English)
+Click directly on that input field — this will open the compose popup.
 
-If that input is not visible because the page is scrolled down, return action "scroll" with scroll_direction "up" and scroll_amount around 700 (do not return error yet).
-After scrolling up, click the "What's on your mind?" input when it becomes visible.
+If that input is not visible because the page is scrolled down, return action "scroll" with scroll_direction "up" and scroll_amount 700.
+After scrolling up, click the input field when it becomes visible.
 
-Important disambiguation:
-- Do NOT click any bottom-right floating round button with edit/pencil icon; that is for messaging, not feed post composer.
-- Do NOT click Messenger/chat controls, notification badges, profile/avatar, or sidebar icons.
+Do NOT click: floating round buttons (those are for Messenger), notification badges, profile/avatar, or sidebar icons.
 
-If the compose popup/modal is already open with a text area inside it, return action "none" and status "ready_to_type".
+If the compose popup/modal is already open, return action "none" and status "ready_to_type".
 If the page is still loading, return action "wait".`,
       },
       {
         id: 'type_post_text',
         instruction: `You are looking at a screenshot of Facebook.
-A compose popup/modal should now be open — it is an overlay dialog, not part of the main feed.
-Inside the modal there is a text area that says "What's on your mind?" — click it to focus it.
+A compose popup/modal should now be open — it is an overlay dialog on top of the feed.
+Inside the modal, find the text area with one of these placeholders:
+- "Что у вас нового?" (Russian)
+- "What's on your mind?" (English)
+Click it to focus it.
 If the text area already has a cursor or looks focused, return action "none" and status "ready_to_type".
-If the compose modal is not open and the feed view is visible, return action "scroll" with scroll_direction "up" to find the "What's on your mind?" entry point.
-Only return action "error" if the UI is blocked, loading indefinitely, or the compose entry cannot be found after scrolling.`,
+If the modal is not open and the feed is visible, return action "scroll" with scroll_direction "up".
+Only return action "error" if the UI is blocked or loading indefinitely.`,
       },
       {
         id: 'attach_image',
@@ -207,8 +210,8 @@ If no image is visible, return action "error" with reasoning explaining what you
       {
         id: 'click_post_button',
         instruction: `You are looking at a screenshot of Facebook.
-The compose modal is open and text has been typed. Find and click the "Post" button to publish.
-The Post button is blue (in light theme) and is located at the bottom of the compose modal.
+The compose modal is open and text has been typed. Find and click the publish button to submit the post.
+The button is blue and located at the bottom of the compose modal — it may say "Post" (English) or "Опубликовать" (Russian) or similar in any language.
 It becomes active/enabled only after text has been entered — if it looks greyed out, do not click it and return action "error".
 Do not click Cancel, Close, or any other button.`,
       },
@@ -278,13 +281,13 @@ Set status to "post_success" or "post_failed".`,
       {
         id: 'find_reply_button',
         instruction: `You are looking at a screenshot of Facebook.
-Find the comment input field below the post — it typically says "Write a comment…" — and click on it to focus it.
+Find the comment input field below the post — it may say "Write a comment…" (English) or "Напишите комментарий…" (Russian) or similar — and click on it to focus it.
 If you cannot find it, return action "error" with reasoning explaining what you see.`,
       },
       {
         id: 'type_reply',
         instruction: `You are looking at a screenshot of Facebook.
-The comment input field should now be focused, showing "Write a comment…" placeholder or a cursor.
+The comment input field should now be focused, showing "Write a comment…" (English) or "Напишите комментарий…" (Russian) placeholder or a cursor.
 If the input is ready for typing, return action "none" and status "ready_to_type".
 If the input is visible but not focused, click it.
 If no comment input is visible, return action "error".`,
@@ -292,14 +295,14 @@ If no comment input is visible, return action "error".`,
       {
         id: 'submit_reply',
         instruction: `You are looking at a screenshot of Facebook.
-You have typed a comment. Submit it by pressing Enter or clicking the send/post icon next to the comment input.
-Do not click Cancel or any unrelated button.`,
+You have typed a comment. Find the send icon — a blue arrow pointing right — that appears to the right of the comment input field, and click it to submit.
+Do not click any other button.`,
       },
       {
         id: 'verify_reply',
         instruction: `You are looking at a screenshot of Facebook.
 Has the comment been successfully posted?
-Look for the comment text now appearing in the comments section below the post.
+Look for the typed comment text now appearing as a new entry in the comments section below the post.
 Set status to "post_success" or "post_failed".`,
       },
     ],

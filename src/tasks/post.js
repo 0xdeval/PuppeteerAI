@@ -163,6 +163,10 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       return { status: 'error', error: `Compose area not ready: ${typeCheck.reasoning}` };
     }
 
+    if (page.isClosed()) {
+      return { status: 'error', error: 'Page closed unexpectedly — proxy may have dropped the connection.' };
+    }
+
     if (typeCheck.action === 'click' && typeCheck.x && typeCheck.y) {
       await page.mouse.click(typeCheck.x, typeCheck.y);
       await randomDelay(400, 800);
@@ -284,6 +288,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     };
   } catch (err) {
     console.error(`[post] Unexpected error for ${avatar} on ${platform}:`, err.message);
+    await saveStepScreenshot(page, aiOptions, 'error-unexpected').catch(() => {});
 
     // Don't mark as login_expired for unexpected errors
     return {
