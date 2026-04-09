@@ -20,14 +20,14 @@ Your job: return every post as a JSON array, correlating URLs with post content 
 
 CRITICAL RULES:
 1. Return ONLY a valid JSON array. No markdown, no prose, no code fences.
-2. Your entire response must start with "[" and end with "]".
+2. Your entire response must be a JSON object: {"posts": [...]}.
 3. Each element must have exactly these fields: url, text, author, timestamp.
 4. Use null for any field you cannot determine.
 5. "url" — assign URLs from POST URLS in order (first URL = first post, second = second post, etc.).
 6. "text" — the actual post body. Exclude UI labels: Like, Comment, Share, Follow, Add friend, etc.
 7. "author" — name of the person or page who wrote the post.
 8. "timestamp" — date/time as it appears in the text (e.g. "April 5 at 10:00 AM", "2h", "Yesterday").
-9. If there are no posts, return: []`;
+9. If there are no posts, return: {"posts":[]}`;
 
 async function saveStepScreenshot(page, options, stepLabel) {
   if (!SAVE_DEBUG) return;
@@ -209,6 +209,7 @@ async function extractPostsWithAI(pageText, urls) {
 
   if (Array.isArray(result)) return result;
   if (result && Array.isArray(result.posts)) return result.posts;
+  console.warn('[scrape] AI returned unexpected shape:', JSON.stringify(result)?.slice(0, 300));
   return [];
 }
 
