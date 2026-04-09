@@ -94,9 +94,14 @@ class OpenAIVisionProvider {
     try {
       return JSON.parse(cleaned);
     } catch {
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (match) {
-        return JSON.parse(match[0]);
+      // Try extracting an array first, then an object
+      const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        try { return JSON.parse(arrayMatch[0]); } catch { /* fall through */ }
+      }
+      const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        return JSON.parse(objectMatch[0]);
       }
       throw new Error(`Could not parse JSON from OpenAI response: ${rawText.slice(0, 200)}`);
     }

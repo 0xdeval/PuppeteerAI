@@ -82,9 +82,17 @@ async function launchBrowser(profileId, options = {}) {
   }
 
   const profile = getProfile(profileId);
-  const proxy = profile?.proxy ? { server: profile.proxy } : undefined;
-  if (proxy) {
-    console.log(`[browser] Using proxy for ${profileId}: ${profile.proxy}`);
+  let proxy;
+  if (profile?.proxy) {
+    try {
+      const url = new URL(profile.proxy);
+      proxy = { server: `${url.protocol}//${url.hostname}:${url.port}` };
+      if (url.username) proxy.username = decodeURIComponent(url.username);
+      if (url.password) proxy.password = decodeURIComponent(url.password);
+    } catch {
+      proxy = { server: profile.proxy };
+    }
+    console.log(`[browser] Using proxy for ${profileId}: ${proxy.server}`);
   }
 
   const context = await chromium.launchPersistentContext(userDataDir, {
