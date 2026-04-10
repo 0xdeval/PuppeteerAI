@@ -49,8 +49,8 @@ cat > /app/.env <<EOF
 API_SECRET=${API_SECRET:-}
 LLM_PROVIDER=${LLM_PROVIDER:-ollama}
 LLM_BASE_URL=${LLM_BASE_URL:-http://localhost:11434}
-LLM_MODEL_PRIMARY=${LLM_MODEL_PRIMARY:-qwen3-vl:8b}
-LLM_MODEL_FALLBACK=${LLM_MODEL_FALLBACK:-qwen3-vl:8b}
+LLM_MODEL_PRIMARY=${LLM_MODEL_PRIMARY:-llama3.2-vision:11b}
+LLM_MODEL_FALLBACK=${LLM_MODEL_FALLBACK:-llama3.2-vision:11b}
 PORT=${PORT:-3001}
 VNC_PORT=${VNC_PORT:-6080}
 DATA_DIR=${DATA_DIR:-/app/data}
@@ -81,7 +81,7 @@ log "Ollama ready. Loaded models:"
 ollama list
 
 # Pull model if not already present (fallback if it wasn't baked into the image)
-MODEL="${LLM_MODEL_PRIMARY:-qwen3-vl:8b}"
+MODEL="${LLM_MODEL_PRIMARY:-llama3.2-vision:11b}"
 if ! ollama list | grep -q "$MODEL"; then
     log "Model $MODEL not found — pulling now (this may take a while)..."
     ollama pull "$MODEL"

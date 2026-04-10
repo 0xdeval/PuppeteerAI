@@ -50,8 +50,8 @@ RUN bash -c '\
     ollama serve & OLLAMA_PID=$!; \
     echo "[build] Waiting for Ollama to start..."; \
     until ollama list >/dev/null 2>&1; do sleep 2; done; \
-    echo "[build] Ollama ready. Pulling qwen3-vl:8b..."; \
-    ollama pull qwen3-vl:8b; \
+    echo "[build] Ollama ready. Pulling llama3.2-vision:11b..."; \
+    ollama pull llama3.2-vision:11b; \
     STATUS=$?; \
     kill $OLLAMA_PID 2>/dev/null; \
     echo "[build] Disk space after pull:"; df -h /; \
