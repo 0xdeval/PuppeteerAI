@@ -9,11 +9,11 @@ jobs:
 
     steps:
       - name: Free disk space
-        # GitHub runners ship with ~14GB free. We need ~25GB for CUDA base + model + Chromium.
-        # This removes pre-installed SDKs/tools that aren't needed for a Docker build.
+        # qwen2.5vl:32b is ~20GB. CUDA base ~6GB. Need 30GB+ free on the runner.
         run: |
           echo "Disk before cleanup:"
           df -h /
+          # Remove large pre-installed toolchains not needed for Docker builds
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
@@ -21,8 +21,14 @@ jobs:
           sudo rm -rf /usr/lib/jvm
           sudo rm -rf /usr/share/swift
           sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/man
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo docker image prune -af
           sudo apt-get clean
+          sudo apt-get autoremove -y
           echo "Disk after cleanup:"
           df -h /
 
