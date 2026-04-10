@@ -81,7 +81,7 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
   }
 
   // ─── Vision call via /api/chat ────────────────────────────────────────────
-  // Ollama recommends /api/chat for qwen2.5vl:7b (per ollama.com/library/qwen2.5vl:7b).
+  // Ollama recommends /api/chat for qwen2.5vl:32b (per ollama.com/library/qwen2.5vl:32b).
   // Response format: { message: { role, content, thinking }, done: true, ... }
   // `think: false` disables CoT on Ollama ≥ 0.7 — thinking stays in message.thinking,
   // content is always the clean JSON string.
