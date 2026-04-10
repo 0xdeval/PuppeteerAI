@@ -87,6 +87,7 @@ class OpenAIVisionProvider {
 
   _parseResponse(rawText) {
     const cleaned = rawText
+      .replace(/<think>[\s\S]*?<\/think>/gi, '') // strip Qwen3/thinking-model CoT blocks
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/\s*```$/i, '')
       .trim();
