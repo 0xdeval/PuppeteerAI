@@ -210,10 +210,13 @@ If no image is visible, return action "error" with reasoning explaining what you
       {
         id: 'click_post_button',
         instruction: `You are looking at a screenshot of Facebook.
-The compose modal is open and text has been typed. Find and click the publish button to submit the post.
-The button is blue and located at the bottom of the compose modal — it may say "Post" (English) or "Опубликовать" (Russian) or similar in any language.
-It becomes active/enabled only after text has been entered — if it looks greyed out, do not click it and return action "error".
-Do not click Cancel, Close, or any other button.`,
+The compose modal is open. Look at the "Опубликовать" (Russian) or "Post" (English) button at the bottom of the modal.
+
+There are exactly two states:
+1. Button is BLUE — text has been typed successfully. Click the blue "Опубликовать" button to publish.
+2. Button is GREY/WHITE — the text area is empty or typing failed. Click the X close button at the top-right of the modal and return action "error".
+
+Do not confuse light blue (active) with grey (disabled) — if the button has any blue color, it is active and must be clicked.`,
       },
       {
         id: 'verify_post',
