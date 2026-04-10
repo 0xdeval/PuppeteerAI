@@ -82,7 +82,7 @@ Data (browser profiles, registry) is stored in a Docker volume and survives rest
 
 ## Deploying to RunPod (GPU — Ollama LLM)
 
-For GPU-accelerated deployments using the local `qwen2.5vl:7b` model via Ollama, use the pre-built RunPod image defined in `Dockerfile.runpod`.
+For GPU-accelerated deployments using the local `qwen3-vl:8b` model via Ollama, use the pre-built RunPod image defined in `Dockerfile.runpod`.
 
 ### Why a custom image?
 
@@ -137,8 +137,8 @@ Replace `yourdockerhubuser` with your actual Docker Hub username.
     "API_SECRET": "your-secret",
     "LLM_PROVIDER": "ollama",
     "LLM_BASE_URL": "http://localhost:11434/v1",
-    "LLM_MODEL_PRIMARY": "qwen2.5vl:7b",
-    "LLM_MODEL_FALLBACK": "qwen2.5vl:7b",
+    "LLM_MODEL_PRIMARY": "qwen3-vl:8b",
+    "LLM_MODEL_FALLBACK": "qwen3-vl:8b",
     "PORT": "3001",
     "DATA_DIR": "/app/data"
   },
