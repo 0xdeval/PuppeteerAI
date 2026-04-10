@@ -11,7 +11,7 @@ const { profileDir, getProfile } = require('./profiles');
 // Apply stealth plugin to playwright-extra
 chromium.use(StealthPlugin());
 
-const MAX_BROWSER_TIMEOUT = parseInt(process.env.MAX_BROWSER_TIMEOUT || '120', 10) * 1000; // ms
+const MAX_BROWSER_TIMEOUT = parseInt(process.env.MAX_BROWSER_TIMEOUT || '600', 10) * 1000; // ms
 
 // ─── Per-profile mutex registry ───────────────────────────────────────────────
 // Prevents two concurrent tasks from accessing the same browser profile.

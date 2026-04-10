@@ -32,9 +32,13 @@ function buildProvider(providerName, options = {}) {
 
 function getPrimaryProvider() {
   if (!_primaryProvider) {
-    _primaryProvider = buildProvider(process.env.LLM_PROVIDER, {
+    const providerName = process.env.LLM_PROVIDER;
+    // LLM_BASE_URL is only meaningful for Ollama/OpenAI-compat providers.
+    // Don't pass it to Anthropic — it would route requests to the wrong host.
+    const isOllamaOrOpenAI = providerName === 'ollama' || providerName === 'openai';
+    _primaryProvider = buildProvider(providerName, {
       apiKey: process.env.LLM_API_KEY,
-      baseURL: process.env.LLM_BASE_URL,
+      ...(isOllamaOrOpenAI && process.env.LLM_BASE_URL ? { baseURL: process.env.LLM_BASE_URL } : {}),
     });
   }
   return _primaryProvider;
@@ -43,10 +47,10 @@ function getPrimaryProvider() {
 function getFallbackProvider() {
   if (!_fallbackProvider) {
     const providerName = process.env.LLM_FALLBACK_PROVIDER || process.env.LLM_PROVIDER;
+    const isOllamaOrOpenAI = providerName === 'ollama' || providerName === 'openai';
     _fallbackProvider = buildProvider(providerName, {
       apiKey: process.env.LLM_FALLBACK_API_KEY || process.env.LLM_API_KEY,
-      baseURL: process.env.LLM_BASE_URL,
-      // For the same provider, force the fallback model
+      ...(isOllamaOrOpenAI && process.env.LLM_BASE_URL ? { baseURL: process.env.LLM_BASE_URL } : {}),
       primaryModel: process.env.LLM_MODEL_FALLBACK,
       fallbackModel: process.env.LLM_MODEL_FALLBACK,
     });
@@ -95,9 +99,25 @@ async function aiAction(page, instruction, options = {}) {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Capture screenshot as base64
-      const screenshotBuffer = await page.screenshot({ fullPage: false });
+      // scale:'css' forces the screenshot to always be 1:1 with CSS pixels regardless of
+      // deviceScaleFactor. Without this, a Retina/HiDPI display produces a 2× screenshot
+      // whose coordinates don't match what Playwright uses for page.mouse.click().
+      const screenshotBuffer = await page.screenshot({ fullPage: false, scale: 'css' });
       const imageBase64 = screenshotBuffer.toString('base64');
+
+      // Log screenshot dimensions once per session so mismatches are immediately visible.
+      if (attempt === 1) {
+        const viewport = page.viewportSize();
+        const imgByteLen = screenshotBuffer.length;
+        // PNG header: width at bytes 16-19, height at 20-23
+        const imgWidth = screenshotBuffer.readUInt32BE(16);
+        const imgHeight = screenshotBuffer.readUInt32BE(20);
+        if (viewport && (imgWidth !== viewport.width || imgHeight !== viewport.height)) {
+          console.warn(`[vision] Screenshot size (${imgWidth}×${imgHeight}) does not match viewport (${viewport.width}×${viewport.height}) — coordinate mismatch!`);
+        } else if (viewport) {
+          console.log(`[vision] Screenshot: ${imgWidth}×${imgHeight} (matches viewport)`);
+        }
+      }
 
       // Decide which provider to use
       const useFallback = attempt > 1;

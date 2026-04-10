@@ -72,19 +72,34 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
       await randomDelay(400, 800);
     }
 
+    const isFacebook = platform.toLowerCase() === 'facebook';
+
     // ── Step 3: Click reply input ───────────────────────────────────────────
     console.log('[reply] Step 3: Finding and clicking reply input');
     const replyBtnStep = steps.find((s) => s.id === 'find_reply_button');
-    const replyBtnResult = await aiAction(page, replyBtnStep.instruction, aiOptions);
+    let replyBtnResult = await aiAction(page, replyBtnStep.instruction, aiOptions);
+
+    // Scroll down if the comment input is below the fold, then retry once
+    if (replyBtnResult.action === 'scroll') {
+      const amount = Math.max(100, Math.min(500, replyBtnResult.scroll_amount || 200));
+      console.log(`[reply] Step 3: Comment input not visible — scrolling down ${amount}px`);
+      await page.evaluate((dy) => window.scrollBy(0, dy), amount);
+      await randomDelay(800, 1500);
+      replyBtnResult = await aiAction(page, replyBtnStep.instruction, aiOptions);
+    }
 
     if (replyBtnResult.action === 'error') {
       await saveStepScreenshot(page, aiOptions, 'step3-reply-input-error');
       return { status: 'error', error: `Could not find reply input: ${replyBtnResult.reasoning}` };
     }
 
-    // Always click if coordinates provided — even if AI says 'none', clicking
-    // the input is necessary to ensure focus before typing
     if (replyBtnResult.x && replyBtnResult.y) {
+      const elemAtClick = await page.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return null;
+        return { tag: el.tagName, role: el.getAttribute('role'), ariaLabel: el.getAttribute('aria-label'), text: el.textContent?.trim().slice(0, 80) };
+      }, { x: replyBtnResult.x, y: replyBtnResult.y }).catch(() => null);
+      console.log(`[reply] Step 3: Clicking at (${replyBtnResult.x}, ${replyBtnResult.y}), element: ${JSON.stringify(elemAtClick)}`);
       await page.mouse.click(replyBtnResult.x, replyBtnResult.y);
     }
     await randomDelay(700, 1500);
@@ -93,7 +108,17 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     // ── Step 4: Confirm reply input is focused ──────────────────────────────
     console.log('[reply] Step 4: Confirming reply input is focused');
     const typeStep = steps.find((s) => s.id === 'type_reply');
-    const typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+    let typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+
+    // Scroll if input still not in view
+    if (typeCheck.action === 'scroll') {
+      const amount = Math.max(100, Math.min(500, typeCheck.scroll_amount || 150));
+      console.log(`[reply] Step 4: Input not visible — scrolling down ${amount}px`);
+      await page.evaluate((dy) => window.scrollBy(0, dy), amount);
+      await randomDelay(800, 1500);
+      typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
+    }
+
     await saveStepScreenshot(page, aiOptions, 'step4-input-ready');
 
     if (typeCheck.action === 'error') {
@@ -101,27 +126,24 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     }
 
     if (typeCheck.x && typeCheck.y) {
+      const elemAtType = await page.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return null;
+        return { tag: el.tagName, role: el.getAttribute('role'), ariaLabel: el.getAttribute('aria-label'), text: el.textContent?.trim().slice(0, 80) };
+      }, { x: typeCheck.x, y: typeCheck.y }).catch(() => null);
+      console.log(`[reply] Step 4: Clicking at (${typeCheck.x}, ${typeCheck.y}), element: ${JSON.stringify(elemAtType)}`);
       await page.mouse.click(typeCheck.x, typeCheck.y);
       await randomDelay(400, 800);
     }
 
     // ── Step 5: Type reply text ─────────────────────────────────────────────
-    // Use execCommand('insertText') to inject the full text into the focused
-    // contenteditable element in one shot. This avoids char-by-char autocomplete
-    // interference (e.g. apostrophes triggering X's suggestions and eating chars).
     console.log('[reply] Step 5: Typing reply');
-    const typed = await page.evaluate((replyText) => {
-      const el = document.activeElement;
-      if (!el) return false;
-      return document.execCommand('insertText', false, replyText);
-    }, text);
 
-    if (!typed) {
-      // execCommand not supported on this element — fall back to keyboard.type
-      console.warn('[reply] execCommand failed, falling back to keyboard.type');
-      await page.keyboard.type(text);
+    if (page.isClosed()) {
+      return { status: 'error', error: 'Browser timed out before typing could start — increase MAX_BROWSER_TIMEOUT.' };
     }
 
+    await humanType(page, text);
     await randomDelay(600, 1400);
     await saveStepScreenshot(page, aiOptions, 'step5-typed');
 
@@ -138,8 +160,8 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     if (submitResult.x && submitResult.y) {
       await page.mouse.click(submitResult.x, submitResult.y);
     } else {
-      // Fallback: keyboard shortcut works in both inline and modal compose on X
-      await page.keyboard.press('Control+Enter');
+      // Facebook comments submit with Enter; X/Twitter uses Control+Enter
+      await page.keyboard.press(isFacebook ? 'Enter' : 'Control+Enter');
     }
 
     await randomDelay(2000, 4000);

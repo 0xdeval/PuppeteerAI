@@ -17,15 +17,15 @@ CRITICAL RULES:
 
 Required JSON fields (include ALL of these every time):
 - "observation": string — brief description of what you see on screen
-- "action": string — exactly one of: click | type | scroll | wait | none | done | error
-- "x": number or null — x coordinate to click (null if action is not click)
-- "y": number or null — y coordinate to click (null if action is not click)
+- "action": string — MUST be exactly one of these words: click, type, scroll, wait, none, done, error — no other values allowed
+- "x": number or null — x coordinate as an INTEGER (e.g. 152), null if action is not click
+- "y": number or null — y coordinate as an INTEGER (e.g. 740), null if action is not click
 - "text": string or null — text to type (null if action is not type)
 - "scroll_direction": "up" or "down" or null
-- "scroll_amount": number or null — pixels to scroll
-- "confidence": number — float from 0.0 to 1.0, how certain you are
+- "scroll_amount": number or null — pixels to scroll as an INTEGER (e.g. 300), null if not scrolling
+- "confidence": number — MUST be a decimal float between 0.0 and 1.0 (e.g. 0.95), never a word like "high"
 - "reasoning": string — why you chose this action
-- "status": string or null — one of: logged_in | logged_out | post_success | post_failed | session_expired | ready_to_type | image_attached (null if not applicable)
+- "status": string or null — MUST be exactly one of: logged_in, logged_out, post_success, post_failed, session_expired, ready_to_type, image_attached — or null if not applicable
 - "post_url": string or null — URL of the created post if visible, otherwise null
 
 Example of a valid response (a click action):
@@ -164,59 +164,64 @@ Set status to "post_success" or "post_failed".`,
     facebook: [
       {
         id: 'find_compose_button',
-        instruction: `You are looking at a screenshot of Facebook home feed.
-Your goal is to click the input field near the top of the feed to open the post compose popup.
+        instruction: `You are looking at a screenshot of Facebook.
 
-Look for an input field that contains one of these placeholder texts:
-- "Что у вас нового, ...?" (Russian)
-- "What's on your mind, ...?" (English)
-Click directly on that input field — this will open the compose popup.
+There are TWO distinct states — read carefully:
 
-If that input is not visible because the page is scrolled down, return action "scroll" with scroll_direction "up" and scroll_amount 700.
-After scrolling up, click the input field when it becomes visible.
+STATE A — The "What's on your mind" bar is visible but the post dialog is NOT open (action required):
+- Look at the TOP NAVIGATION BAR at the very top of the screen (the dark bar with the Facebook logo on the left).
+- In the CENTER of that navigation bar there is a rounded input that says "What's on your mind, ...?" or "Что у вас нового, ...?"
+- This bar is at the very top of the page — its y-coordinate will be between 20 and 55 pixels from the top of the image.
+- DO NOT confuse this with the Stories row (which shows circular profile pictures and a "Create story" card) — that is BELOW the navigation bar and should NOT be clicked.
+- You MUST click the "What's on your mind" bar in the navigation bar. Return action "click" with x,y at the center of that input bar.
 
-Do NOT click: floating round buttons (those are for Messenger), notification badges, profile/avatar, or sidebar icons.
+STATE B — The post dialog is open (no action needed):
+- A large popup overlay is visible on top of the feed.
+- It has a full-size text area, the user's avatar at the top, and a "Опубликовать"/"Post" button at the bottom (gray when no text is entered).
+- Only in this state: return action "none" and status "ready_to_type".
 
-If the compose popup/modal is already open, return action "none" and status "ready_to_type".
+IMPORTANT: If you see the "What's on your mind" bar in the navigation bar, that means STATE A — click it. The y-coordinate of your click MUST be between 20 and 55. Do NOT click on the stories row or feed area below.
+
 If the page is still loading, return action "wait".`,
       },
       {
         id: 'type_post_text',
         instruction: `You are looking at a screenshot of Facebook.
-A compose popup/modal should now be open — it is an overlay dialog on top of the feed.
-Inside the modal, find the text area with one of these placeholders:
-- "Что у вас нового?" (Russian)
-- "What's on your mind?" (English)
-Click it to focus it.
-If the text area already has a cursor or looks focused, return action "none" and status "ready_to_type".
-If the modal is not open and the feed is visible, return action "scroll" with scroll_direction "up".
-Only return action "error" if the UI is blocked or loading indefinitely.`,
+A post dialog should be open — a large popup overlay on top of the feed with the user's avatar at the top and a "Опубликовать"/"Post" button at the bottom.
+
+Inside the dialog find the large text area (it will say "Что у вас нового?" in Russian or "What's on your mind?" in English as placeholder text).
+
+If the text area is visible and NOT focused (no cursor inside it): return action "click" with its center coordinates.
+If the text area is already focused (cursor or blinking caret visible inside it): return action "none" and status "ready_to_type".
+If the post dialog is not open at all (you only see the feed with the small collapsed bar): return action "error" with reasoning "post dialog not open".
+Never return action "scroll" at this step.`,
       },
       {
         id: 'attach_image',
         instruction: `You are looking at a screenshot of Facebook.
-An image needs to be attached. Look for a "Photo/Video" button or camera/photo icon in the toolbar inside the compose modal.
+A post dialog is open. An image needs to be attached.
+Look for a "Фото/видео" (Russian) or "Photo/Video" (English) button, or a camera/photo icon in the toolbar at the bottom of the dialog.
 Click it to open the file picker.
-If an image preview is already visible inside the modal, return action "none" with status "image_attached".`,
+If an image preview is already visible inside the dialog, return action "none" with status "image_attached".`,
       },
       {
         id: 'verify_image',
         instruction: `You are looking at a screenshot of Facebook.
-Check if an image has been successfully attached to the post inside the compose modal.
-Look for an image thumbnail or preview inside the compose dialog.
-If image is attached, return action "none" with status "image_attached" and confidence 0.9+.
-If no image is visible, return action "error" with reasoning explaining what you see.`,
+Check if an image has been successfully attached to the post inside the post dialog.
+Look for an image thumbnail or preview inside the dialog.
+If an image is attached: return action "none" with status "image_attached" and confidence 0.9+.
+If no image is visible: return action "error" with reasoning explaining what you see.`,
       },
       {
         id: 'click_post_button',
         instruction: `You are looking at a screenshot of Facebook.
-The compose modal is open. Look at the "Опубликовать" (Russian) or "Post" (English) button at the bottom of the modal.
+A post dialog is open. Find the publish button at the bottom of the dialog.
 
-There are exactly two states:
-1. Button is BLUE — text has been typed successfully. Click the blue "Опубликовать" button to publish.
-2. Button is GREY/WHITE — the text area is empty or typing failed. Click the X close button at the top-right of the modal and return action "error".
+TWO possible states:
+1. Button is BLUE ("Опубликовать" / "Post") — text was typed. Click it to publish. Return action "click" with its coordinates.
+2. Button is GREY/DISABLED — text area is empty. Return action "error" with reasoning "post button is disabled, text was not typed".
 
-Do not confuse light blue (active) with grey (disabled) — if the button has any blue color, it is active and must be clicked.`,
+Do NOT click the X/close button. Do NOT confuse the blue button with grey — any blue color means it is active.`,
       },
       {
         id: 'verify_post',
@@ -224,14 +229,15 @@ Do not confuse light blue (active) with grey (disabled) — if the button has an
 Determine if the post was successfully published.
 
 Signs of SUCCESS:
-- Compose modal is closed and the main feed is visible
-- The composed text now appears as a post in the feed
+- The post dialog is closed and the main feed is visible
+- A brief loading spinner may be visible — this is still a success state, set confidence 0.7
+- The posted text appears as a new post in the feed
 
 Signs of FAILURE:
-- Compose modal is still open with an error message
+- The post dialog is still open with an error message
 - A restriction notice or login prompt appeared
 
-Set status to "post_success" or "post_failed".`,
+Set status to "post_success" or "post_failed". If a spinner is visible and the dialog just closed, set status "post_success" with confidence 0.75.`,
       },
     ],
   },
@@ -283,22 +289,40 @@ Set status to "post_success" or "post_failed".`,
     facebook: [
       {
         id: 'find_reply_button',
-        instruction: `You are looking at a screenshot of Facebook.
-Find the comment input field below the post — it may say "Write a comment…" (English) or "Напишите комментарий…" (Russian) or similar — and click on it to focus it.
-If you cannot find it, return action "error" with reasoning explaining what you see.`,
+        instruction: `You are looking at a screenshot of a Facebook post page or post modal popup.
+Find the comment input field. It is a rounded input bar that says:
+- "Напишите комментарий…" (Russian)
+- "Write a comment…" (English)
+
+It is located at the BOTTOM of the post or modal — below the post content, below any attachment/emoji icon buttons.
+
+If the input IS visible: click directly on it. Return action "click" with its x,y coordinates.
+If the input is already focused (cursor visible inside it): return action "none" and status "ready_to_type".
+If the input is NOT visible (cut off below the screen, or you can only see attachment/emoji buttons but no text input): return action "scroll" with scroll_direction "down" and scroll_amount 200 so it can be revealed.
+Only return action "error" if no comment section exists at all on the page.`,
       },
       {
         id: 'type_reply',
         instruction: `You are looking at a screenshot of Facebook.
-The comment input field should now be focused, showing "Write a comment…" (English) or "Напишите комментарий…" (Russian) placeholder or a cursor.
-If the input is ready for typing, return action "none" and status "ready_to_type".
-If the input is visible but not focused, click it.
-If no comment input is visible, return action "error".`,
+The comment input field should now be focused.
+
+Signs it IS focused and ready:
+- A cursor or blinking caret is visible inside the input field
+- The input field appears active/highlighted
+
+If focused: return action "none" and status "ready_to_type".
+If visible but not focused: return action "click" with its coordinates.
+If not visible at all: return action "scroll" with scroll_direction "down" and scroll_amount 150.
+Only return action "error" if there is no comment input anywhere on the page.`,
       },
       {
         id: 'submit_reply',
         instruction: `You are looking at a screenshot of Facebook.
-You have typed a comment. Find the send icon — a blue arrow pointing right — that appears to the right of the comment input field, and click it to submit.
+Text has been typed into the comment input. Submit it.
+
+Look for a blue send icon (arrow pointing right) to the right of the comment input field and click it.
+If the send icon is not visible yet (the field may not be focused): click the comment input field first, then return action "click" with the input's coordinates.
+If you can see the blue send arrow: return action "click" with its coordinates.
 Do not click any other button.`,
       },
       {

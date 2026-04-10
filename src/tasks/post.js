@@ -97,8 +97,8 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
 
     const steps = getTaskSteps('create_post', { platform: platformLabel, avatar });
 
-    // ── Step 3: Find and click compose button ───────────────────────────────
-    console.log('[post] Step 3: Finding compose button');
+    // ── Step 3: Find and click "What's on your mind" input ─────────────────
+    console.log('[post] Step 3: Finding post input field');
     const composeStep = steps.find((s) => s.id === 'find_compose_button');
     let composeResult = await aiAction(page, composeStep.instruction, aiOptions);
 
@@ -109,7 +109,7 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       composeResult = await aiAction(page, composeStep.instruction, aiOptions);
     }
 
-    // Allow the model to recover by scrolling to reveal top-of-feed compose entry.
+    // Allow the model to recover by scrolling to reveal top-of-feed input.
     if (composeResult.action === 'scroll') {
       const amount = Math.max(200, Math.min(1200, composeResult.scroll_amount || 700));
       const direction = composeResult.scroll_direction === 'up' ? -1 : 1;
@@ -118,26 +118,74 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
       composeResult = await aiAction(page, composeStep.instruction, aiOptions);
     }
 
-    await saveStepScreenshot(page, aiOptions, 'step3-find-compose');
+    await saveStepScreenshot(page, aiOptions, 'step3-before-click');
 
     if (composeResult.action === 'error') {
-      return { status: 'error', error: `Could not find compose button: ${composeResult.reasoning}` };
+      return { status: 'error', error: `Could not find post input field: ${composeResult.reasoning}` };
     }
 
     if (composeResult.action === 'click' && composeResult.x && composeResult.y) {
+      // For Facebook the "What's on your mind" bar lives in the top navigation bar (y ≈ 20–55).
+      // If the model returned a y > 80 it almost certainly pointed at the Stories row instead.
+      if (isFacebook && composeResult.y > 80) {
+        console.warn(`[post] Step 3: Suspicious y-coordinate (${composeResult.y}) — likely pointed at Stories row instead of nav bar input. Expected y < 80.`);
+      }
+
+      // Log what element is actually at the target coordinates before clicking.
+      // This tells us immediately whether the AI pointed to the right element or missed.
+      const elemAtCoords = await page.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return null;
+        return {
+          tag: el.tagName,
+          role: el.getAttribute('role'),
+          ariaLabel: el.getAttribute('aria-label'),
+          text: el.textContent?.trim().slice(0, 80),
+        };
+      }, { x: composeResult.x, y: composeResult.y }).catch(() => null);
+      console.log(`[post] Step 3: Clicking at (${composeResult.x}, ${composeResult.y}), element at coords: ${JSON.stringify(elemAtCoords)}`);
+
       await page.mouse.click(composeResult.x, composeResult.y);
-      await randomDelay(600, 1500);
+      await saveStepScreenshot(page, aiOptions, 'step3-after-click');
+      await randomDelay(isFacebook ? 2000 : 600, isFacebook ? 3000 : 1500);
+    }
+
+    // For Facebook: re-run find_compose_button to verify the dialog actually opened (STATE B).
+    // If the AI still returns STATE A (click), retry with the new coordinates it provides.
+    if (isFacebook) {
+      const verifyOpen = await aiAction(page, composeStep.instruction, aiOptions);
+      await saveStepScreenshot(page, aiOptions, 'step3-verify-open');
+
+      if (verifyOpen.action === 'click' && verifyOpen.x && verifyOpen.y) {
+        const elemAtRetry = await page.evaluate(({ x, y }) => {
+          const el = document.elementFromPoint(x, y);
+          if (!el) return null;
+          return {
+            tag: el.tagName,
+            role: el.getAttribute('role'),
+            ariaLabel: el.getAttribute('aria-label'),
+            text: el.textContent?.trim().slice(0, 80),
+          };
+        }, { x: verifyOpen.x, y: verifyOpen.y }).catch(() => null);
+        console.log(`[post] Step 3: Dialog not open — retry click at (${verifyOpen.x}, ${verifyOpen.y}), element: ${JSON.stringify(elemAtRetry)}`);
+
+        await page.mouse.click(verifyOpen.x, verifyOpen.y);
+        await saveStepScreenshot(page, aiOptions, 'step3-retry-after-click');
+        await randomDelay(2000, 3000);
+      } else {
+        console.log('[post] Step 3: AI confirms dialog is open');
+      }
     }
 
     // ── Step 4: Type post text ──────────────────────────────────────────────
     console.log(
       deferTypingUntilAfterImage
-        ? '[post] Step 4: Preparing compose area (typing deferred until after image)'
+        ? '[post] Step 4: Focusing post text area (typing deferred until after image)'
         : '[post] Step 4: Typing post text'
     );
 
     // Wait for compose modal/area to fully render before checking
-    await randomDelay(2000, 3500);
+    await randomDelay(1000, 2000);
 
     const typeStep = steps.find((s) => s.id === 'type_post_text');
     let typeCheck = await aiAction(page, typeStep.instruction, aiOptions);
@@ -168,12 +216,26 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     }
 
     if (typeCheck.action === 'click' && typeCheck.x && typeCheck.y) {
+      const elemAtType = await page.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        if (!el) return null;
+        return {
+          tag: el.tagName,
+          role: el.getAttribute('role'),
+          ariaLabel: el.getAttribute('aria-label'),
+          text: el.textContent?.trim().slice(0, 80),
+        };
+      }, { x: typeCheck.x, y: typeCheck.y }).catch(() => null);
+      console.log(`[post] Step 4: Clicking text area at (${typeCheck.x}, ${typeCheck.y}), element: ${JSON.stringify(elemAtType)}`);
       await page.mouse.click(typeCheck.x, typeCheck.y);
       await randomDelay(400, 800);
     }
 
+    if (page.isClosed()) {
+      return { status: 'error', error: 'Browser timed out before typing could start — increase MAX_BROWSER_TIMEOUT.' };
+    }
+
     if (!deferTypingUntilAfterImage) {
-      // Type text with human-like behaviour
       await humanType(page, text);
       await randomDelay(500, 1200);
       await saveStepScreenshot(page, aiOptions, 'step4-typed');

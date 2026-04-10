@@ -95,19 +95,19 @@ async function humanType(page, text, selector) {
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
 
-    // Occasional mid-word pause (simulate thinking or hesitation ~5 % chance per char)
-    if (Math.random() < 0.05) {
-      await randomDelay(300, 800);
+    // Occasional mid-word pause (simulate thinking or hesitation ~3 % chance per char)
+    if (Math.random() < 0.03) {
+      await randomDelay(200, 500);
     }
 
     await page.keyboard.type(char, { delay: 0 });
 
-    // Per-character delay: 50–200 ms (gaussian)
-    await randomDelay(50, 200);
+    // Per-character delay: 30–100 ms — realistic for a 40–80 WPM typist
+    await randomDelay(30, 100);
 
     // After punctuation or space, slightly longer pause
     if ([' ', '.', ',', '!', '?', '\n'].includes(char)) {
-      await randomDelay(50, 150);
+      await randomDelay(30, 80);
     }
   }
 }

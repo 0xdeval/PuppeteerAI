@@ -8,9 +8,11 @@ const DEFAULT_FALLBACK_MODEL = process.env.LLM_MODEL_FALLBACK || 'claude-sonnet-
 
 class AnthropicVisionProvider {
   constructor(options = {}) {
+    // Only override baseURL when explicitly provided via options (not from the shared
+    // LLM_BASE_URL env var, which is an Ollama/OpenAI-compat endpoint and would cause 404s).
     this.client = new Anthropic({
       apiKey: options.apiKey || process.env.LLM_API_KEY,
-      baseURL: options.baseURL || process.env.LLM_BASE_URL || undefined,
+      ...(options.baseURL ? { baseURL: options.baseURL } : {}),
     });
     this.primaryModel = options.primaryModel || DEFAULT_PRIMARY_MODEL;
     this.fallbackModel = options.fallbackModel || DEFAULT_FALLBACK_MODEL;

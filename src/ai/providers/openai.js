@@ -86,26 +86,61 @@ class OpenAIVisionProvider {
   }
 
   _parseResponse(rawText) {
+    if (!rawText || !rawText.trim()) {
+      throw new Error('Model returned empty response');
+    }
+
     const cleaned = rawText
       .replace(/<think>[\s\S]*?<\/think>/gi, '') // strip Qwen3/thinking-model CoT blocks
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/\s*```$/i, '')
       .trim();
 
+    if (!cleaned) {
+      throw new Error('Model response was empty after stripping think blocks');
+    }
+
     try {
-      return JSON.parse(cleaned);
+      return this._normalizeResult(JSON.parse(cleaned));
     } catch {
       // Try extracting an array first, then an object
       const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
-        try { return JSON.parse(arrayMatch[0]); } catch { /* fall through */ }
+        try { return this._normalizeResult(JSON.parse(arrayMatch[0])); } catch { /* fall through */ }
       }
       const objectMatch = cleaned.match(/\{[\s\S]*\}/);
       if (objectMatch) {
-        return JSON.parse(objectMatch[0]);
+        return this._normalizeResult(JSON.parse(objectMatch[0]));
       }
       throw new Error(`Could not parse JSON from OpenAI response: ${rawText.slice(0, 200)}`);
     }
+  }
+
+  _normalizeResult(result) {
+    if (!result || typeof result !== 'object') return result;
+
+    // confidence must be a 0.0–1.0 float
+    if (typeof result.confidence === 'string') {
+      const words = { high: 0.9, medium: 0.6, low: 0.3 };
+      result.confidence = words[result.confidence.toLowerCase()] ?? (parseFloat(result.confidence) || 0.5);
+    }
+
+    // x, y, scroll_amount must be numbers or null
+    for (const field of ['x', 'y', 'scroll_amount']) {
+      if (result[field] !== null && result[field] !== undefined) {
+        const n = parseFloat(result[field]);
+        result[field] = isNaN(n) ? null : n;
+      }
+    }
+
+    // action must be one of the allowed values — default to "none" if the model returned something else
+    const VALID_ACTIONS = new Set(['click', 'type', 'scroll', 'wait', 'none', 'done', 'error']);
+    if (result.action && !VALID_ACTIONS.has(result.action)) {
+      console.warn(`[vision] Invalid action "${result.action}" from model — coercing to "none"`);
+      result.action = 'none';
+    }
+
+    return result;
   }
 
   _isRetryableError(err) {

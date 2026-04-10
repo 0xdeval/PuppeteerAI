@@ -33,6 +33,14 @@ const API_SECRET = process.env.API_SECRET;
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+// Match response timeout to MAX_BROWSER_TIMEOUT so slow Ollama inference + typing never
+// causes the socket to close before the browser task finishes.
+const HTTP_TIMEOUT_MS = parseInt(process.env.MAX_BROWSER_TIMEOUT || '600', 10) * 1000;
+app.use((req, res, next) => {
+  res.setTimeout(HTTP_TIMEOUT_MS);
+  next();
+});
+
 // ─── Startup cleanup ──────────────────────────────────────────────────────────
 
 cleanupOldTempFiles().catch((err) =>
@@ -117,7 +125,6 @@ app.post('/post', requireAuth, async (req, res) => {
 
   const { profile, profileId } = ensureProfile(platform, avatar);
 
-  // Profile must be ready
   if (profile.status === 'needs_login') {
     return res.status(403).json({
       error: 'Profile needs login before posting.',
@@ -126,19 +133,14 @@ app.post('/post', requireAuth, async (req, res) => {
     });
   }
 
-  // Rate limit check
   const rateCheck = checkRateLimit(profileId);
   if (!rateCheck.allowed) {
-    return res.status(429).json({
-      error: rateCheck.reason,
-      retryAfter: rateCheck.retryAfter,
-    });
+    return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
   }
 
   let imagePath = null;
 
   try {
-    // Download image if URL provided
     if (image_url) {
       try {
         imagePath = await downloadImage(image_url);
@@ -148,7 +150,6 @@ app.post('/post', requireAuth, async (req, res) => {
     }
 
     let result;
-
     try {
       result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
         return await postContent(page, { platform, text, imagePath, avatar }, null);
@@ -203,15 +204,11 @@ app.post('/reply', requireAuth, async (req, res) => {
 
   const rateCheck = checkRateLimit(profileId);
   if (!rateCheck.allowed) {
-    return res.status(429).json({
-      error: rateCheck.reason,
-      retryAfter: rateCheck.retryAfter,
-    });
+    return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
   }
 
   try {
     let result;
-
     try {
       result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
         return await replyToPost(page, { platform, post_url, text, avatar }, null);
