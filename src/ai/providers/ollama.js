@@ -1,10 +1,28 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const { OpenAIVisionProvider } = require('./openai');
 const { SYSTEM_PROMPT } = require('../prompts');
 
 const DEFAULT_OLLAMA_API_KEY = 'ollama';
 const OLLAMA_TIMEOUT_MS = 180_000; // vision models can be slow
+
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', '..', 'data');
+const DEBUG_DIR = path.join(DATA_DIR, 'debug');
+
+function saveResponseLog(data, label = 'ollama') {
+  try {
+    fs.mkdirSync(DEBUG_DIR, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${ts}-${label}-response.json`;
+    fs.writeFileSync(path.join(DEBUG_DIR, filename), JSON.stringify(data, null, 2), 'utf8');
+    console.log(`[ollama] Response log saved: ${filename}`);
+  } catch (err) {
+    console.warn('[ollama] Could not save response log:', err.message);
+  }
+}
 
 class OllamaVisionProvider extends OpenAIVisionProvider {
   constructor(options = {}) {
@@ -62,41 +80,51 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
     return res.json();
   }
 
-  // ─── Vision call via /api/generate ────────────────────────────────────────
-  // Uses the native format shown by qwen3-vl:8b:
-  //   { response: "<clean json>", thinking: "<cot>", done: true, ... }
-  // The `think: false` flag disables CoT output on Ollama ≥ 0.7.
-  // `format: "json"` forces valid JSON in `response`.
+  // ─── Vision call via /api/chat ────────────────────────────────────────────
+  // Ollama recommends /api/chat for qwen3-vl (per ollama.com/library/qwen3-vl).
+  // Response format: { message: { role, content, thinking }, done: true, ... }
+  // `think: false` disables CoT on Ollama ≥ 0.7 — thinking stays in message.thinking,
+  // content is always the clean JSON string.
+  // `format: "json"` forces valid JSON output in message.content.
 
   async _callApi(model, imageBase64, instruction) {
-    const data = await this._nativeFetch('/api/generate', {
+    const data = await this._nativeFetch('/api/chat', {
       model,
-      system: SYSTEM_PROMPT,
-      prompt: instruction,
-      images: [imageBase64],
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: instruction, images: [imageBase64] },
+      ],
       stream: false,
       format: 'json',
       think: false,
     });
 
-    // Native format: data.response is the clean JSON string.
-    // Fall back to message.content for /api/chat-style responses.
-    return data.response ?? data.message?.content ?? '';
+    saveResponseLog(data, model.replace(/[^a-z0-9]/gi, '_'));
+    const content = data.message?.content ?? data.response ?? '';
+    console.log(`[ollama] Raw content: ${String(content).slice(0, 300)}`);
+
+    return content;
   }
 
   // ─── Text-only call (used by checkSession etc.) ────────────────────────────
 
   async analyzeText(systemPrompt, userMessage) {
-    const data = await this._nativeFetch('/api/generate', {
+    const data = await this._nativeFetch('/api/chat', {
       model: this.primaryModel,
-      system: systemPrompt,
-      prompt: userMessage,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
       stream: false,
       format: 'json',
       think: false,
     });
 
-    return this._parseResponse(data.response ?? data.message?.content ?? '');
+    saveResponseLog(data, `${this.primaryModel.replace(/[^a-z0-9]/gi, '_')}-text`);
+    const content = data.message?.content ?? data.response ?? '';
+    console.log(`[ollama] Raw content (text): ${String(content).slice(0, 300)}`);
+
+    return this._parseResponse(content);
   }
 }
 

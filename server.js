@@ -402,12 +402,12 @@ app.post('/login/:profileId/complete', requireAuth, async (req, res) => {
   }
 });
 
-// GET /debug/:filename — serve debug screenshots saved by the vision module
+// GET /debug/:filename — serve debug screenshots (.png) and model response logs (.json)
 app.get('/debug/:filename', requireAuthOrQuery, (req, res) => {
   const { filename } = req.params;
 
-  // Only allow .png files and reject path traversal attempts
-  if (!/^[\p{L}\p{N}\w\-.:]+\.png$/iu.test(filename)) {
+  // Allow .png and .json files; reject path traversal attempts
+  if (!/^[\p{L}\p{N}\w\-.:]+\.(png|json)$/iu.test(filename)) {
     return res.status(400).json({ error: 'Invalid filename.' });
   }
 
@@ -415,30 +415,35 @@ app.get('/debug/:filename', requireAuthOrQuery, (req, res) => {
   const filepath = path.join(DATA_DIR, 'debug', filename);
 
   if (!fs.existsSync(filepath)) {
-    return res.status(404).json({ error: 'Debug screenshot not found.' });
+    return res.status(404).json({ error: 'Debug file not found.' });
   }
 
-  res.setHeader('Content-Type', 'image/png');
+  const isPng = filename.endsWith('.png');
+  res.setHeader('Content-Type', isPng ? 'image/png' : 'application/json');
   res.setHeader('Cache-Control', 'no-store');
   fs.createReadStream(filepath).pipe(res);
 });
 
-// GET /debug — list all saved debug screenshots
+// GET /debug — list all saved debug files (screenshots + model response logs)
 app.get('/debug', requireAuthOrQuery, (req, res) => {
   const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
   const debugDir = path.join(DATA_DIR, 'debug');
 
   if (!fs.existsSync(debugDir)) {
-    return res.json({ screenshots: [] });
+    return res.json({ screenshots: [], logs: [] });
   }
 
-  const files = fs.readdirSync(debugDir)
+  const all = fs.readdirSync(debugDir).sort().reverse(); // newest first
+
+  const screenshots = all
     .filter((f) => f.endsWith('.png'))
-    .sort()
-    .reverse() // newest first
     .map((f) => ({ filename: f, url: `/debug/${encodeURIComponent(f)}` }));
 
-  res.json({ screenshots: files });
+  const logs = all
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => ({ filename: f, url: `/debug/${encodeURIComponent(f)}` }));
+
+  res.json({ screenshots, logs });
 });
 
 // ─── Error handler ────────────────────────────────────────────────────────────
