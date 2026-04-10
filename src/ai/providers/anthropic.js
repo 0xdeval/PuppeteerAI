@@ -53,18 +53,31 @@ class AnthropicVisionProvider {
   async analyze({ imageBase64, instruction, responseSchema, useFallback = false }) {
     const model = useFallback ? this.fallbackModel : this.primaryModel;
 
-    try {
-      const response = await this._callApi(model, imageBase64, instruction);
-      return this._parseResponse(response);
-    } catch (err) {
-      // On primary model failure, try fallback automatically
-      if (!useFallback && this._isRetryableError(err)) {
-        console.warn(`[anthropic] Primary model (${model}) failed (${err.message}), trying fallback.`);
-        const fallbackResponse = await this._callApi(this.fallbackModel, imageBase64, instruction);
-        return this._parseResponse(fallbackResponse);
+    // Retry the chosen model up to 2 times with backoff before falling back
+    const maxAttempts = 2;
+    let lastErr;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await this._callApi(model, imageBase64, instruction);
+        return this._parseResponse(response);
+      } catch (err) {
+        lastErr = err;
+        if (!this._isRetryableError(err)) throw err;
+        if (attempt < maxAttempts) {
+          // Exponential backoff: 2s, 4s…
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+        }
       }
-      throw err;
     }
+
+    // All retries exhausted — escalate to fallback model (only when not already using it)
+    if (!useFallback && this.fallbackModel !== model) {
+      console.warn(`[anthropic] Primary model (${model}) failed (${lastErr.message}), trying fallback.`);
+      const fallbackResponse = await this._callApi(this.fallbackModel, imageBase64, instruction);
+      return this._parseResponse(fallbackResponse);
+    }
+
+    throw lastErr;
   }
 
   async _callApi(model, imageBase64, instruction) {
