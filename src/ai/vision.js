@@ -105,10 +105,10 @@ async function aiAction(page, instruction, options = {}) {
       const screenshotBuffer = await page.screenshot({ fullPage: false, scale: 'css' });
       const imageBase64 = screenshotBuffer.toString('base64');
 
+      const viewport = page.viewportSize();
+
       // Log screenshot dimensions once per session so mismatches are immediately visible.
       if (attempt === 1) {
-        const viewport = page.viewportSize();
-        const imgByteLen = screenshotBuffer.length;
         // PNG header: width at bytes 16-19, height at 20-23
         const imgWidth = screenshotBuffer.readUInt32BE(16);
         const imgHeight = screenshotBuffer.readUInt32BE(20);
@@ -128,6 +128,7 @@ async function aiAction(page, instruction, options = {}) {
       const result = await provider.analyze({
         imageBase64,
         instruction,
+        viewport,
         useFallback: attempt > Math.ceil(maxRetries / 2), // escalate to fallback model after half retries
       });
 

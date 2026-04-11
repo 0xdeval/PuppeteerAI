@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 
 const { OpenAIVisionProvider } = require('./openai');
-const { SYSTEM_PROMPT } = require('../prompts');
 
 const DEFAULT_OLLAMA_API_KEY = 'ollama';
 const OLLAMA_TIMEOUT_MS = 180_000; // vision models can be slow
@@ -46,6 +45,7 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
       baseURL,
       primaryModel,
       fallbackModel,
+      coordinateFormat: options.coordinateFormat || 'normalized_1000',
     });
 
     // Derive native Ollama base URL by stripping the /v1 suffix added for OpenAI compat.
@@ -81,7 +81,7 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
   }
 
   // ─── Vision call via /api/chat ────────────────────────────────────────────
-  // Ollama recommends /api/chat for qwen2.5vl:32b (per ollama.com/library/qwen2.5vl:32b).
+  // Ollama recommends /api/chat for qwen2.5vl:7b (per ollama.com/library/qwen2.5vl:7b).
   // Response format: { message: { role, content, thinking }, done: true, ... }
   // `think: false` disables CoT on Ollama ≥ 0.7 — thinking stays in message.thinking,
   // content is always the clean JSON string.
@@ -91,7 +91,7 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
     const data = await this._nativeFetch('/api/chat', {
       model,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: this.systemPrompt },
         { role: 'user', content: instruction, images: [imageBase64] },
       ],
       stream: false,
@@ -124,7 +124,8 @@ class OllamaVisionProvider extends OpenAIVisionProvider {
     const content = data.message?.content ?? data.response ?? '';
     console.log(`[ollama] Raw content (text): ${String(content).slice(0, 300)}`);
 
-    return this._parseResponse(content);
+    // Text-only calls never return coordinates — pass null viewport so no denormalization runs
+    return this._parseResponse(content, null);
   }
 }
 

@@ -1,7 +1,7 @@
 'use strict';
 
 const OpenAI = require('openai');
-const { SYSTEM_PROMPT } = require('../prompts');
+const { buildSystemPrompt } = require('../prompts');
 
 const DEFAULT_PRIMARY_MODEL = process.env.LLM_MODEL_PRIMARY || 'gpt-4o-mini';
 const DEFAULT_FALLBACK_MODEL = process.env.LLM_MODEL_FALLBACK || 'gpt-4o';
@@ -14,6 +14,8 @@ class OpenAIVisionProvider {
     });
     this.primaryModel = options.primaryModel || DEFAULT_PRIMARY_MODEL;
     this.fallbackModel = options.fallbackModel || DEFAULT_FALLBACK_MODEL;
+    this.coordinateFormat = options.coordinateFormat || 'pixels';
+    this.systemPrompt = buildSystemPrompt(this.coordinateFormat);
   }
 
   /**
@@ -26,17 +28,17 @@ class OpenAIVisionProvider {
    * @param {boolean} [params.useFallback]    - Force use of the fallback model.
    * @returns {Promise<object>} Parsed JSON action object.
    */
-  async analyze({ imageBase64, instruction, responseSchema, useFallback = false }) {
+  async analyze({ imageBase64, instruction, viewport, responseSchema, useFallback = false }) {
     const model = useFallback ? this.fallbackModel : this.primaryModel;
 
     try {
       const response = await this._callApi(model, imageBase64, instruction);
-      return this._parseResponse(response);
+      return this._parseResponse(response, viewport);
     } catch (err) {
       if (!useFallback && this._isRetryableError(err)) {
         console.warn(`[openai] Primary model (${model}) failed (${err.message}), trying fallback.`);
         const fallbackResponse = await this._callApi(this.fallbackModel, imageBase64, instruction);
-        return this._parseResponse(fallbackResponse);
+        return this._parseResponse(fallbackResponse, viewport);
       }
       throw err;
     }
@@ -51,7 +53,8 @@ class OpenAIVisionProvider {
         { role: 'user', content: userMessage },
       ],
     });
-    return this._parseResponse(completion.choices[0].message.content);
+    // Text-only calls never return coordinates, no viewport needed
+    return this._parseResponse(completion.choices[0].message.content, null);
   }
 
   async _callApi(model, imageBase64, instruction) {
@@ -61,7 +64,7 @@ class OpenAIVisionProvider {
       messages: [
         {
           role: 'system',
-          content: SYSTEM_PROMPT,
+          content: this.systemPrompt,
         },
         {
           role: 'user',
@@ -85,7 +88,7 @@ class OpenAIVisionProvider {
     return completion.choices[0].message.content;
   }
 
-  _parseResponse(rawText) {
+  _parseResponse(rawText, viewport) {
     if (!rawText || !rawText.trim()) {
       throw new Error('Model returned empty response');
     }
@@ -101,22 +104,22 @@ class OpenAIVisionProvider {
     }
 
     try {
-      return this._normalizeResult(JSON.parse(cleaned));
+      return this._normalizeResult(JSON.parse(cleaned), viewport);
     } catch {
       // Try extracting an array first, then an object
       const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
       if (arrayMatch) {
-        try { return this._normalizeResult(JSON.parse(arrayMatch[0])); } catch { /* fall through */ }
+        try { return this._normalizeResult(JSON.parse(arrayMatch[0]), viewport); } catch { /* fall through */ }
       }
       const objectMatch = cleaned.match(/\{[\s\S]*\}/);
       if (objectMatch) {
-        return this._normalizeResult(JSON.parse(objectMatch[0]));
+        return this._normalizeResult(JSON.parse(objectMatch[0]), viewport);
       }
       throw new Error(`Could not parse JSON from OpenAI response: ${rawText.slice(0, 200)}`);
     }
   }
 
-  _normalizeResult(result) {
+  _normalizeResult(result, viewport) {
     if (!result || typeof result !== 'object') return result;
 
     // confidence must be a 0.0–1.0 float
@@ -125,12 +128,27 @@ class OpenAIVisionProvider {
       result.confidence = words[result.confidence.toLowerCase()] ?? (parseFloat(result.confidence) || 0.5);
     }
 
-    // x, y, scroll_amount must be numbers or null
-    for (const field of ['x', 'y', 'scroll_amount']) {
+    // x, y: convert to CSS pixel integers.
+    // normalized_1000: model returns 0–1000 grid → scale by viewport dimension.
+    // pixels: model returns raw CSS pixels → just round to integer.
+    for (const field of ['x', 'y']) {
       if (result[field] !== null && result[field] !== undefined) {
         const n = parseFloat(result[field]);
-        result[field] = isNaN(n) ? null : n;
+        if (isNaN(n)) {
+          result[field] = null;
+        } else if (this.coordinateFormat === 'normalized_1000' && viewport) {
+          const dim = field === 'x' ? viewport.width : viewport.height;
+          result[field] = Math.round((n / 1000) * dim);
+        } else {
+          result[field] = Math.round(n);
+        }
       }
+    }
+
+    // scroll_amount is always in pixels, no normalization needed
+    if (result.scroll_amount !== null && result.scroll_amount !== undefined) {
+      const n = parseFloat(result.scroll_amount);
+      result.scroll_amount = isNaN(n) ? null : n;
     }
 
     // action must be one of the allowed values — default to "none" if the model returned something else

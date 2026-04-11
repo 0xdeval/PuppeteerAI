@@ -1,15 +1,14 @@
 name: Build & Push RunPod Image
 
 on:
-  workflow_dispatch:  # manual trigger only — run when you want to publish a new image
+  workflow_dispatch: # manual trigger only — run when you want to publish a new image
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # native linux/amd64, no emulation needed
+    runs-on: ubuntu-latest # native linux/amd64, no emulation needed
 
     steps:
       - name: Free disk space
-        # qwen2.5vl:32b is ~20GB. CUDA base ~6GB. Need 30GB+ free on the runner.
         run: |
           echo "Disk before cleanup:"
           df -h /

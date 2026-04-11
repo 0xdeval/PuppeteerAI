@@ -2,7 +2,40 @@
 
 // ─── System Prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a browser automation AI assistant. Your job is to analyze screenshots of web pages and return structured JSON instructions so that an automation script can perform actions.
+/**
+ * Builds the system prompt with coordinate instructions tailored to the model.
+ *
+ * - 'pixels'          — raw CSS pixel integers (native for OpenAI / Anthropic models)
+ * - 'normalized_1000' — 0–1000 integer grid (native training format for Qwen2.5-VL)
+ *
+ * @param {'pixels'|'normalized_1000'} [coordinateFormat='pixels']
+ * @returns {string}
+ */
+function buildSystemPrompt(coordinateFormat = 'pixels') {
+  const isNorm = coordinateFormat === 'normalized_1000';
+
+  const coordRule = isNorm
+    ? `8. Coordinates (x, y) use a 0–1000 normalized grid relative to the screenshot dimensions.
+   - (0, 0) = top-left corner, (1000, 1000) = bottom-right corner
+   - (500, 500) = exact center of the image
+   - Always point to the CENTER of the target element.`
+    : `8. Coordinates (x, y) should be the center of the target element, in CSS pixels.
+   - (0, 0) = top-left corner of the screenshot
+   - Always point to the CENTER of the element to click.`;
+
+  const xFieldDesc = isNorm
+    ? `- "x": number or null — x coordinate as an INTEGER in range 0–1000 (e.g. 120), null if action is not click`
+    : `- "x": number or null — x coordinate as an INTEGER in CSS pixels (e.g. 152), null if action is not click`;
+
+  const yFieldDesc = isNorm
+    ? `- "y": number or null — y coordinate as an INTEGER in range 0–1000 (e.g. 740), null if action is not click`
+    : `- "y": number or null — y coordinate as an INTEGER in CSS pixels (e.g. 740), null if action is not click`;
+
+  const exampleClick = isNorm
+    ? `{"observation":"I see the X home feed with a blue Post button in the left sidebar","action":"click","x":120,"y":740,"text":null,"scroll_direction":null,"scroll_amount":null,"confidence":0.95,"reasoning":"The Post button is clearly visible and needs to be clicked to open the compose dialog","status":"logged_in","post_url":null}`
+    : `{"observation":"I see the X home feed with a blue Post button in the left sidebar","action":"click","x":152,"y":740,"text":null,"scroll_direction":null,"scroll_amount":null,"confidence":0.95,"reasoning":"The Post button is clearly visible and needs to be clicked to open the compose dialog","status":"logged_in","post_url":null}`;
+
+  return `You are a browser automation AI assistant. Your job is to analyze screenshots of web pages and return structured JSON instructions so that an automation script can perform actions.
 
 CRITICAL RULES:
 1. You MUST return ONLY valid JSON. No markdown, no prose, no code fences, no backticks. Raw JSON only.
@@ -12,14 +45,14 @@ CRITICAL RULES:
 5. If you are uncertain, return a low confidence score (below 0.7) so the system can escalate.
 6. Never guess at element positions — only describe what is visually present.
 7. If the page looks like a login page, CAPTCHA, or access wall, say so in your reasoning.
-8. Coordinates (x, y) should be the center of the element to interact with, in CSS pixels.
+${coordRule}
 9. For fields that do not apply, use null — never omit them.
 
 Required JSON fields (include ALL of these every time):
 - "observation": string — brief description of what you see on screen
 - "action": string — MUST be exactly one of these words: click, type, scroll, wait, none, done, error — no other values allowed
-- "x": number or null — x coordinate as an INTEGER (e.g. 152), null if action is not click
-- "y": number or null — y coordinate as an INTEGER (e.g. 740), null if action is not click
+${xFieldDesc}
+${yFieldDesc}
 - "text": string or null — text to type (null if action is not type)
 - "scroll_direction": "up" or "down" or null
 - "scroll_amount": number or null — pixels to scroll as an INTEGER (e.g. 300), null if not scrolling
@@ -29,10 +62,14 @@ Required JSON fields (include ALL of these every time):
 - "post_url": string or null — URL of the created post if visible, otherwise null
 
 Example of a valid response (a click action):
-{"observation":"I see the X home feed with a blue Post button in the left sidebar","action":"click","x":152,"y":740,"text":null,"scroll_direction":null,"scroll_amount":null,"confidence":0.95,"reasoning":"The Post button is clearly visible and needs to be clicked to open the compose dialog","status":"logged_in","post_url":null}
+${exampleClick}
 
 Example of a valid response (session check, logged out):
 {"observation":"I see a login page with email and password fields and a Sign In button","action":"none","x":null,"y":null,"text":null,"scroll_direction":null,"scroll_amount":null,"confidence":0.98,"reasoning":"No user-specific navigation is visible; this is a login wall","status":"logged_out","post_url":null}`;
+}
+
+// Backward-compat default (pixel format)
+const SYSTEM_PROMPT = buildSystemPrompt('pixels');
 
 // ─── Task Step Definitions ────────────────────────────────────────────────────
 
@@ -385,6 +422,7 @@ function getTaskSteps(taskName, vars = {}) {
 
 module.exports = {
   SYSTEM_PROMPT,
+  buildSystemPrompt,
   TASKS,
   formatInstruction,
   getTaskSteps,

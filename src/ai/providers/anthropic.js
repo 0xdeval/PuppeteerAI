@@ -1,7 +1,7 @@
 'use strict';
 
 const Anthropic = require('@anthropic-ai/sdk');
-const { SYSTEM_PROMPT } = require('../prompts');
+const { buildSystemPrompt } = require('../prompts');
 
 const DEFAULT_PRIMARY_MODEL = process.env.LLM_MODEL_PRIMARY || 'claude-haiku-4-5-20251001';
 const DEFAULT_FALLBACK_MODEL = process.env.LLM_MODEL_FALLBACK || 'claude-sonnet-4-20250514';
@@ -16,6 +16,8 @@ class AnthropicVisionProvider {
     });
     this.primaryModel = options.primaryModel || DEFAULT_PRIMARY_MODEL;
     this.fallbackModel = options.fallbackModel || DEFAULT_FALLBACK_MODEL;
+    this.coordinateFormat = options.coordinateFormat || 'pixels';
+    this.systemPrompt = buildSystemPrompt(this.coordinateFormat);
   }
 
   /**
@@ -50,7 +52,7 @@ class AnthropicVisionProvider {
    * @param {boolean} [params.useFallback]    - Force use of the fallback model.
    * @returns {Promise<object>} Parsed JSON action object.
    */
-  async analyze({ imageBase64, instruction, responseSchema, useFallback = false }) {
+  async analyze({ imageBase64, instruction, viewport, responseSchema, useFallback = false }) {
     const model = useFallback ? this.fallbackModel : this.primaryModel;
 
     // Retry the chosen model up to 2 times with backoff before falling back
@@ -59,7 +61,7 @@ class AnthropicVisionProvider {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const response = await this._callApi(model, imageBase64, instruction);
-        return this._parseResponse(response);
+        return this._parseResponse(response, viewport);
       } catch (err) {
         lastErr = err;
         if (!this._isRetryableError(err)) throw err;
@@ -74,7 +76,7 @@ class AnthropicVisionProvider {
     if (!useFallback && this.fallbackModel !== model) {
       console.warn(`[anthropic] Primary model (${model}) failed (${lastErr.message}), trying fallback.`);
       const fallbackResponse = await this._callApi(this.fallbackModel, imageBase64, instruction);
-      return this._parseResponse(fallbackResponse);
+      return this._parseResponse(fallbackResponse, viewport);
     }
 
     throw lastErr;
@@ -84,7 +86,7 @@ class AnthropicVisionProvider {
     const message = await this.client.messages.create({
       model,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: this.systemPrompt,
       messages: [
         {
           role: 'user',
@@ -109,23 +111,48 @@ class AnthropicVisionProvider {
     return message.content[0].text;
   }
 
-  _parseResponse(rawText) {
+  _parseResponse(rawText, viewport) {
     // Strip any accidental markdown code fences
     const cleaned = rawText
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/\s*```$/i, '')
       .trim();
 
+    let result;
     try {
-      return JSON.parse(cleaned);
+      result = JSON.parse(cleaned);
     } catch {
       // Attempt to extract JSON object from mixed content
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (match) {
-        return JSON.parse(match[0]);
+        result = JSON.parse(match[0]);
+      } else {
+        throw new Error(`Could not parse JSON from Anthropic response: ${rawText.slice(0, 200)}`);
       }
-      throw new Error(`Could not parse JSON from Anthropic response: ${rawText.slice(0, 200)}`);
     }
+
+    return this._denormalizeCoords(result, viewport);
+  }
+
+  // Convert model coords to CSS pixel integers.
+  // normalized_1000: scale 0–1000 grid by viewport dimension.
+  // pixels: model already returns CSS pixels, just round to integer.
+  _denormalizeCoords(result, viewport) {
+    if (!result || typeof result !== 'object') return result;
+    for (const field of ['x', 'y']) {
+      if (result[field] !== null && result[field] !== undefined) {
+        const n = parseFloat(result[field]);
+        if (isNaN(n)) {
+          result[field] = null;
+        } else if (this.coordinateFormat === 'normalized_1000' && viewport) {
+          const dim = field === 'x' ? viewport.width : viewport.height;
+          result[field] = Math.round((n / 1000) * dim);
+        } else {
+          result[field] = Math.round(n);
+        }
+      }
+    }
+    return result;
   }
 
   _isRetryableError(err) {
