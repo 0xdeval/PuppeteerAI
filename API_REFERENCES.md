@@ -5,10 +5,10 @@ Short, practical reference for using this API by platform.
 ## Global Rules
 
 - Base URL (local): `http://localhost:3001`
-- Auth header on all endpoints except `/health`:
+- All endpoints except `GET /health` require:
 
-```http
-x-api-key: <API_SECRET>
+```
+x-api-key: <your API_SECRET>
 ```
 
 - Canonical platform values:
@@ -49,7 +49,7 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
     "cookies": [
       {
         "name": "auth_token",
-        "value": "REDACTED",
+        "value": "...",
         "domain": ".x.com",
         "path": "/",
         "httpOnly": true,
@@ -58,7 +58,7 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
       },
       {
         "name": "ct0",
-        "value": "REDACTED",
+        "value": "...",
         "domain": ".x.com",
         "path": "/",
         "httpOnly": false,
@@ -76,11 +76,11 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
 curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{
+  -d ' {
     "cookies": [
       {
         "name": "c_user",
-        "value": "REDACTED",
+        "value": "...",
         "domain": ".facebook.com",
         "path": "/",
         "httpOnly": false,
@@ -89,7 +89,25 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
       },
       {
         "name": "xs",
-        "value": "REDACTED",
+        "value": "...",
+        "domain": ".facebook.com",
+        "path": "/",
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+      },
+      {
+        "name": "datr",
+        "value": "...",
+        "domain": ".facebook.com",
+        "path": "/",
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "None"
+      },
+      {
+        "name": "sb",
+        "value": "...",
         "domain": ".facebook.com",
         "path": "/",
         "httpOnly": true,
@@ -97,7 +115,7 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
         "sameSite": "None"
       }
     ],
-    "proxy": "http://username:password@31.59.20.176:6754"
+    "proxy": "http://username:password@179.61.172.144:6695"
   }'
 ```
 

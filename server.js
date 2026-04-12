@@ -16,7 +16,6 @@ const {
   checkRateLimit,
   recordPost,
 } = require('./src/profiles');
-const { startLoginSession, completeLoginSession } = require('./src/login');
 const { postContent } = require('./src/tasks/post');
 const { replyToPost } = require('./src/tasks/reply');
 const { scrapeProfilePosts } = require('./src/tasks/scrape');
@@ -360,41 +359,6 @@ app.get('/profiles/:profileId/cookies', requireAuth, (req, res) => {
       cookies: cookies.map(c => ({ name: c.name, domain: c.domain, path: c.path, hasValue: !!c.value, valueLength: c.value?.length })),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /login/:profileId
-app.get('/login/:profileId', requireAuth, async (req, res) => {
-  const { profileId } = req.params;
-  const firstDash = profileId.indexOf('-');
-  const platform = firstDash !== -1 ? profileId.slice(0, firstDash) : undefined;
-  const avatar = firstDash !== -1 ? profileId.slice(firstDash + 1) : undefined;
-
-  try {
-    const sessionInfo = await startLoginSession(profileId, { platform, avatar });
-    res.json(sessionInfo);
-  } catch (err) {
-    if (err.code === 'PROFILE_NOT_FOUND') {
-      return res.status(404).json({ error: err.message });
-    }
-    console.error('[server] /login start error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /login/:profileId/complete
-app.post('/login/:profileId/complete', requireAuth, async (req, res) => {
-  const { profileId } = req.params;
-
-  try {
-    const result = await completeLoginSession(profileId);
-    res.json(result);
-  } catch (err) {
-    if (err.code === 'NO_SESSION') {
-      return res.status(404).json({ error: err.message });
-    }
-    console.error('[server] /login complete error:', err);
     res.status(500).json({ error: err.message });
   }
 });

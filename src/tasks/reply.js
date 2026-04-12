@@ -168,10 +168,27 @@ async function replyToPost(page, { platform, post_url, text, avatar }, llmClient
     await saveStepScreenshot(page, aiOptions, 'step6-after-submit');
 
     // ── Step 7: Verify reply posted ─────────────────────────────────────────
+    // Retry up to 4 times (max ~20s) in case the UI still shows a posting spinner.
     console.log('[reply] Step 7: Verifying reply');
     const verifyStep = steps.find((s) => s.id === 'verify_reply');
-    const verifyResult = await aiAction(page, verifyStep.instruction, aiOptions);
-    await saveStepScreenshot(page, aiOptions, 'step7-verify');
+    const VERIFY_MAX_ATTEMPTS = 4;
+    let verifyResult = null;
+
+    for (let attempt = 1; attempt <= VERIFY_MAX_ATTEMPTS; attempt++) {
+      verifyResult = await aiAction(page, verifyStep.instruction, aiOptions);
+      await saveStepScreenshot(page, aiOptions, `step7-verify-attempt${attempt}`);
+
+      const isStillPosting = verifyResult.action === 'wait' ||
+        (verifyResult.reasoning || '').toLowerCase().includes('posting') ||
+        (verifyResult.error || '').toLowerCase().includes('posting');
+
+      if (!isStillPosting) break;
+
+      if (attempt < VERIFY_MAX_ATTEMPTS) {
+        console.log(`[reply] Step 7: Still posting (attempt ${attempt}/${VERIFY_MAX_ATTEMPTS}), waiting...`);
+        await randomDelay(3000, 5000);
+      }
+    }
 
     if (verifyResult.status === 'post_success' || verifyResult.confidence >= 0.8) {
       console.log(`[reply] Successfully replied for ${avatar} on ${platform}`);

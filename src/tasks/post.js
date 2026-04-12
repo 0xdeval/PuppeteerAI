@@ -325,10 +325,27 @@ async function postContent(page, { platform, text, imagePath, avatar }, llmClien
     await saveStepScreenshot(page, aiOptions, 'step7-after-submit');
 
     // ── Step 8: Verify post success ─────────────────────────────────────────
+    // Retry up to 4 times (max ~20s) in case the UI still shows "Posting..." spinner.
     console.log('[post] Step 8: Verifying post');
     const verifyPostStep = steps.find((s) => s.id === 'verify_post');
-    const verifyPostResult = await aiAction(page, verifyPostStep.instruction, aiOptions);
-    await saveStepScreenshot(page, aiOptions, 'step8-verify');
+    const VERIFY_MAX_ATTEMPTS = 4;
+    let verifyPostResult = null;
+
+    for (let attempt = 1; attempt <= VERIFY_MAX_ATTEMPTS; attempt++) {
+      verifyPostResult = await aiAction(page, verifyPostStep.instruction, aiOptions);
+      await saveStepScreenshot(page, aiOptions, `step8-verify-attempt${attempt}`);
+
+      const isStillPosting = verifyPostResult.action === 'wait' ||
+        (verifyPostResult.reasoning || '').toLowerCase().includes('posting') ||
+        (verifyPostResult.error || '').toLowerCase().includes('posting');
+
+      if (!isStillPosting) break;
+
+      if (attempt < VERIFY_MAX_ATTEMPTS) {
+        console.log(`[post] Step 8: Still posting (attempt ${attempt}/${VERIFY_MAX_ATTEMPTS}), waiting...`);
+        await randomDelay(3000, 5000);
+      }
+    }
 
     if (verifyPostResult.status === 'post_success' || verifyPostResult.confidence >= 0.8) {
       console.log(`[post] Successfully posted for ${avatar} on ${platform}`);
