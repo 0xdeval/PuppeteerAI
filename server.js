@@ -71,6 +71,12 @@ function requireAuthOrQuery(req, res, next) {
   next();
 }
 
+// ─── Helper: sleep ───────────────────────────────────────────────────────────
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ─── Helper: build or retrieve profile ───────────────────────────────────────
 
 /**
@@ -134,7 +140,12 @@ app.post('/post', requireAuth, async (req, res) => {
 
   const rateCheck = checkRateLimit(profileId);
   if (!rateCheck.allowed) {
-    return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
+    if (rateCheck.retryAfter && rateCheck.retryAfter <= 120) {
+      console.log(`[server] /post rate-limited for ${profileId}, waiting ${rateCheck.retryAfter}s before proceeding`);
+      await sleep(rateCheck.retryAfter * 1000);
+    } else {
+      return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
+    }
   }
 
   let imagePath = null;
@@ -203,7 +214,13 @@ app.post('/reply', requireAuth, async (req, res) => {
 
   const rateCheck = checkRateLimit(profileId);
   if (!rateCheck.allowed) {
-    return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
+    if (rateCheck.retryAfter && rateCheck.retryAfter <= 120) {
+      // Wait out the interval rather than rejecting — avoids n8n having to retry
+      console.log(`[server] /reply rate-limited for ${profileId}, waiting ${rateCheck.retryAfter}s before proceeding`);
+      await sleep(rateCheck.retryAfter * 1000);
+    } else {
+      return res.status(429).json({ error: rateCheck.reason, retryAfter: rateCheck.retryAfter });
+    }
   }
 
   try {
