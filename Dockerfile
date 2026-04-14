@@ -22,13 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     libpango-1.0-0 \
     libcairo2 \
-    # X11 / VNC stack for headed login sessions
+    # Virtual display for headless Chromium
     xvfb \
-    x11vnc \
-    novnc \
-    websockify \
-    openbox \
-    xterm \
     # Utilities
     curl \
     ca-certificates \
@@ -68,9 +63,6 @@ VOLUME ["/app/data"]
 
 # Express REST API
 EXPOSE 3001
-
-# noVNC WebSocket proxy (for manual login sessions)
-EXPOSE 6080
 
 # ─── Entrypoint ───────────────────────────────────────────────────────────────
 

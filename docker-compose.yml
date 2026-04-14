@@ -9,8 +9,6 @@ services:
     ports:
       # Express REST API
       - "3001:3001"
-      # noVNC WebSocket proxy (manual login sessions)
-      - "6080:6080"
 
     volumes:
       # Persist browser profiles, registry, and debug screenshots across restarts
@@ -30,7 +28,6 @@ services:
       - LLM_FALLBACK_API_KEY=${LLM_FALLBACK_API_KEY:-}
 
       - PORT=${PORT:-3001}
-      - VNC_PORT=${VNC_PORT:-6080}
       - DATA_DIR=/app/data
 
       - MAX_BROWSER_TIMEOUT=${MAX_BROWSER_TIMEOUT:-120}

@@ -289,7 +289,10 @@ Set status to "post_success" or "post_failed". If a spinner is visible and the d
         instruction: `You are looking at a screenshot of X (Twitter).
 Find the reply input field that contains the placeholder text "Post your reply" and click on it.
 This input field is located below the original tweet. Click directly on it to focus it.
-If you cannot find it, return action "error" with reasoning explaining what you see.`,
+
+If the input IS visible: click directly on it. Return action "click" with its x,y coordinates.
+If the input is NOT visible (it may be cut off below the bottom of the screen because the post is long or the viewport is small): return action "scroll" with scroll_direction "down" and scroll_amount 300 so it can be revealed. Do NOT return "error" just because the input is off-screen.
+Only return action "error" if there is clearly no reply section at all on the page (e.g. it is a login page or an unrelated page).`,
       },
       {
         id: 'type_reply',
@@ -304,8 +307,9 @@ Signs that the input IS active and ready:
 
 If ALL of these signs are visible, the input is active — return action "none" and status "ready_to_type".
 If the input area is visible but these signs are NOT present (not yet focused), click directly on the "Post your reply" text area to focus it.
+If the reply input is NOT visible at all (it may be below the fold due to a long post or small viewport): return action "scroll" with scroll_direction "down" and scroll_amount 250 to reveal it. Do NOT return "error" just because the input is off-screen.
 If any unrelated popup or dialog is open, return action "error" describing what you see.
-If no reply input is visible at all, return action "error".`,
+Only return action "error" if there is no reply section anywhere on the page.`,
       },
       {
         id: 'submit_reply',
