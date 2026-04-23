@@ -346,17 +346,19 @@ app.post('/profiles/:profileId/cookies', requireAuth, async (req, res) => {
     fs.mkdirSync(profileDir(profileId), { recursive: true });
     fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2), 'utf8');
 
-    const { proxy } = req.body;
+    const { proxy, dolphin_profile_id } = req.body;
     updateProfile(profileId, {
       status: 'ready',
       lastLoginAt: new Date().toISOString(),
       ...(proxy ? { proxy } : {}),
+      ...(dolphin_profile_id ? { dolphinProfileId: dolphin_profile_id } : {}),
     });
 
     res.json({
       status: 'ready',
       profileId,
       cookiesImported: cookies.length,
+      dolphinProfileId: dolphin_profile_id || null,
       message: 'Cookies saved. Profile is ready for posting.',
     });
   } catch (err) {

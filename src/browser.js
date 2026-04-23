@@ -3,10 +3,12 @@
 const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright-extra');
+const { chromium: baseChromium } = require('playwright');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const { Mutex } = require('async-mutex');
 const { getRandomUserAgent, randomViewport } = require('./utils');
 const { profileDir, getProfile } = require('./profiles');
+const { startDolphinProfile, stopDolphinProfile } = require('./dolphin');
 
 // Apply stealth plugin to playwright-extra
 chromium.use(StealthPlugin());
@@ -82,6 +84,35 @@ async function launchBrowser(profileId, options = {}) {
   }
 
   const profile = getProfile(profileId);
+
+  // ─── Dolphin Anty path ────────────────────────────────────────────────────
+  if (profile?.dolphinProfileId) {
+    const { wsEndpoint } = await startDolphinProfile(profile.dolphinProfileId);
+    console.log(`[browser] Connecting via Dolphin CDP for ${profileId}: ${wsEndpoint}`);
+
+    const cdpBrowser = await baseChromium.connectOverCDP(wsEndpoint);
+    const contexts = cdpBrowser.contexts();
+    const context = contexts.length > 0 ? contexts[0] : await cdpBrowser.newContext();
+
+    const cookiesFile = path.join(userDataDir, 'cookies.json');
+    if (fs.existsSync(cookiesFile)) {
+      try {
+        const saved = JSON.parse(fs.readFileSync(cookiesFile, 'utf8'));
+        if (Array.isArray(saved) && saved.length > 0) {
+          await context.addCookies(saved);
+          console.log(`[browser] Injected ${saved.length} saved cookies for ${profileId} (Dolphin)`);
+        }
+      } catch (err) {
+        console.warn(`[browser] Failed to inject cookies for ${profileId}:`, err.message);
+      }
+    }
+
+    const pages = context.pages();
+    const page = pages.length > 0 ? pages[0] : await context.newPage();
+    return { browser: context, page, _cdpBrowser: cdpBrowser, _dolphinProfileId: profile.dolphinProfileId };
+  }
+
+  // ─── Standard Playwright path ─────────────────────────────────────────────
   let proxy;
   if (profile?.proxy) {
     try {
@@ -193,11 +224,10 @@ async function getBrowserForProfile(profileId, options, callback) {
     throw err; // PROFILE_BUSY error
   }
 
-  let browser = null;
+  let launched = null;
   try {
-    const launched = await launchBrowser(profileId, options);
-    browser = launched.browser;
-    const page = launched.page;
+    launched = await launchBrowser(profileId, options);
+    const { browser, page } = launched;
 
     // Enforce overall browser timeout
     const result = await Promise.race([
@@ -209,8 +239,11 @@ async function getBrowserForProfile(profileId, options, callback) {
 
     return result;
   } finally {
-    if (browser) {
-      await closeBrowser(browser);
+    if (launched?._cdpBrowser) {
+      // Dolphin path: let Dolphin own the browser process, just stop via API
+      stopDolphinProfile(launched._dolphinProfileId).catch(() => {});
+    } else if (launched?.browser) {
+      await closeBrowser(launched.browser);
     }
     release();
   }
