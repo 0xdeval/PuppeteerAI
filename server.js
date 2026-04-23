@@ -264,10 +264,15 @@ app.post('/reply', requireAuth, async (req, res) => {
 // Navigates to a Facebook profile URL and returns all posts visible in the DOM
 // at that moment (no scrolling). Call repeatedly after scrolling to paginate.
 app.post('/scrape', requireAuth, async (req, res) => {
-  const { platform, avatar, profile_url } = req.body;
+  const { platform, avatar, profile_url, limit } = req.body;
 
   if (!platform || !avatar || !profile_url) {
     return res.status(400).json({ error: 'platform, avatar, and profile_url are required.' });
+  }
+
+  const postLimit = limit != null ? parseInt(limit, 10) : null;
+  if (postLimit !== null && (isNaN(postLimit) || postLimit < 1)) {
+    return res.status(400).json({ error: 'limit must be a positive integer.' });
   }
 
   const { profileId } = ensureProfile(platform, avatar);
@@ -277,7 +282,7 @@ app.post('/scrape', requireAuth, async (req, res) => {
 
     try {
       result = await getBrowserForProfile(profileId, { platform }, async (browser, page) => {
-        return await scrapeProfilePosts(page, { profile_url, avatar });
+        return await scrapeProfilePosts(page, { profile_url, avatar, limit: postLimit });
       });
     } catch (browserErr) {
       if (browserErr.code === 'PROFILE_BUSY') {

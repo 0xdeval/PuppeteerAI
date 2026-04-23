@@ -120,11 +120,13 @@ function waitForShareUrl(page, timeoutMs = 3000) {
  * Scrolls down up to MAX_SCROLL_ROUNDS times to load more posts.
  * Tracks already-processed button indices to avoid re-clicking.
  */
-async function collectPostUrls(page) {
+async function collectPostUrls(page, limit = null) {
   const urls = [];
   let processedCount = 0;
 
   for (let round = 0; round <= MAX_SCROLL_ROUNDS; round++) {
+    if (limit !== null && urls.length >= limit) break;
+
     const totalCount = await page.evaluate(() =>
       document.querySelectorAll('[data-ad-rendering-role="share_button"]').length
     );
@@ -135,6 +137,7 @@ async function collectPostUrls(page) {
     }
 
     for (let i = processedCount; i < totalCount; i++) {
+      if (limit !== null && urls.length >= limit) break;
       const urlPromise = waitForShareUrl(page);
 
       const clicked = await page.evaluate((idx) => {
@@ -234,7 +237,7 @@ async function extractPostsWithAI(pageText, urls) {
  *   error?: string,
  * }>}
  */
-async function scrapeProfilePosts(page, { profile_url, avatar }) {
+async function scrapeProfilePosts(page, { profile_url, avatar, limit = null }) {
   const debugOptions = { avatar: avatar || 'unknown', platform: 'Facebook' };
 
   try {
@@ -271,7 +274,7 @@ async function scrapeProfilePosts(page, { profile_url, avatar }) {
 
     // ── Step 5: Click each Share button, collect post URLs via interception ─
     console.log('[scrape] Step 5: Collecting post URLs via Share button interception');
-    const urls = await collectPostUrls(page);
+    const urls = await collectPostUrls(page, limit);
     await saveStepScreenshot(page, debugOptions, 'step5-urls-collected');
 
     // ── Step 6: Expand truncated posts then grab full page text ───────────
