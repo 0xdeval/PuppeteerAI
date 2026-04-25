@@ -11,6 +11,7 @@ A REST API that manages headless browser instances to post on social media (X/Tw
   - [Running with AI providers](#running-with-ai-providers)
   - [First-Time Launch](#first-time-launch)
   - [Typical Workflow](#typical-workflow)
+- [Dolphin Anty Integration](#dolphin-anty-integration)
 - [API Reference](#api-reference)
 - [Other Launching Options](#other-launching-options)
   - [Running with Docker](#running-with-docker)
@@ -161,6 +162,59 @@ Repeat for each avatar × platform combination (`x-sarah-blaze`, `facebook-john-
 7. If session expires         →  re-export and re-import cookies for that avatar
 8. Retire an avatar           →  DELETE /profiles/x-avatarname
 ```
+
+## Dolphin Anty Integration
+
+[Dolphin Anty](https://dolphin-anty.com) is an anti-detect browser that assigns each profile a unique, realistic browser fingerprint (WebGL, canvas, fonts, hardware metrics, User-Agent). When a Dolphin profile ID is attached to an avatar, the service connects to Dolphin via CDP instead of launching a plain Playwright browser — Dolphin owns the fingerprint and browser state, while the service drives it.
+
+### When to use it
+
+Use Dolphin when plain Playwright gets flagged by platform bot detection. It is optional — avatars without a `dolphinProfileId` continue to use the built-in Playwright path.
+
+### Prerequisites
+
+- Dolphin Anty installed and running (on VPS or local machine). The app exposes a local REST API — if you run both this service and Dolphin on the same host, make sure they use different ports (`PORT` for this service, Dolphin defaults to `3001`).
+- An active [Dolphin Anty account](https://dolphin-anty.com) — the local API requires a Bearer token tied to your account.
+- API token generated at `https://dolphin-anty.com/panel` → API tokens → Generate token. **Shown only once — copy it immediately.** Set it as `DOLPHIN_API_TOKEN` in `.env`.
+
+### Profile management
+
+Browser profiles (fingerprint, proxy, name) are created and managed entirely in the **Dolphin Anty desktop application** — not through this service's API. Use the desktop app to:
+
+- Create profiles (assign fingerprint, proxy, OS, screen resolution)
+- Clone or duplicate profiles as a starting point for new avatars
+- Monitor which profiles are active
+
+Each avatar should have its **own dedicated Dolphin profile** — sharing one profile ID across avatars defeats the anti-detect purpose (same fingerprint = same browser identity).
+
+### Wiring a Dolphin profile to an avatar
+
+Once you have a profile in Dolphin, copy its numeric ID from the desktop app and add it to the avatar's entry in `data/registry.json`:
+
+```json
+{
+  "profiles": {
+    "x-alice": {
+      "id": "x-alice",
+      "platform": "x",
+      "avatar": "alice",
+      "dolphinProfileId": "123456",
+      "status": "needs_login"
+    }
+  }
+}
+```
+
+From this point the avatar follows the normal cookie import flow (see [First-Time Launch](#first-time-launch)). The service will automatically use Dolphin's CDP endpoint instead of Playwright when it sees `dolphinProfileId`.
+
+### Environment variables
+
+```bash
+DOLPHIN_API_URL=http://localhost:3001   # Dolphin local API (adjust port if needed)
+DOLPHIN_API_TOKEN=your-token-here       # Bearer token from dolphin-anty.com panel
+```
+
+---
 
 ## API Reference
 
@@ -319,6 +373,8 @@ Enforced per avatar per platform:
 | `MAX_AI_RETRIES`          | No       | `3`                         | Max AI retries per action step                                                                              |
 | `RATE_LIMIT_MIN_INTERVAL` | No       | `60`                        | Min seconds between posts per avatar                                                                        |
 | `RATE_LIMIT_DAILY_MAX`    | No       | `20`                        | Max posts per avatar per day                                                                                |
+| `DOLPHIN_API_URL`         | No       | `http://localhost:3001`     | Local REST API URL of the Dolphin Anty app. Only needed when using Dolphin profiles.                        |
+| `DOLPHIN_API_TOKEN`       | No       | —                           | Bearer token for the Dolphin API. Generate at dolphin-anty.com → panel → API tokens.                       |
 | `SAVE_DEBUG_SCREENSHOTS`  | No       | `true`                      | Save screenshots on failure to `/data/debug/`                                                               |
 | `NODE_ENV`                | No       | `production`                | `development` for verbose logging                                                                           |
 
