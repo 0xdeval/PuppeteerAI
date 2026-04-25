@@ -39,7 +39,7 @@ done
 
 # ─── Launch Dolphin ───────────────────────────────────────────────────────────
 echo "[dolphin] Launching Dolphin Anty..."
-DISPLAY=":${DISPLAY_NUM}" "$DOLPHIN_BIN" --no-sandbox &
+DISPLAY=":${DISPLAY_NUM}" "$DOLPHIN_BIN" --no-sandbox --disable-gpu --disable-software-rasterizer &
 DOLPHIN_PID=$!
 
 echo "[dolphin] Dolphin PID: ${DOLPHIN_PID}"
