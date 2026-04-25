@@ -136,7 +136,8 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
   -H "Content-Type: application/json" \
   -d '{
     "cookies": [ <paste your cookies array here> ],
-    "proxy": "http://username:password@31.59.20.176:6754"
+    "proxy": "http://username:password@31.59.20.176:6754",
+    "dolphin_profile_id": "123456"
   }'
 ```
 

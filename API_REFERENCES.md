@@ -66,7 +66,8 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
         "sameSite": "Lax"
       }
     ],
-    "proxy": "http://username:password@31.59.20.176:6754"
+    "proxy": "http://username:password@31.59.20.176:6754",
+    "dolphin_profile_id": "123456"
   }'
 ```
 
@@ -115,7 +116,8 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
         "sameSite": "None"
       }
     ],
-    "proxy": "http://username:password@179.61.172.144:6695"
+    "proxy": "http://username:password@179.61.172.144:6695",
+    "dolphin_profile_id": "123456"
   }'
 ```
 
@@ -125,13 +127,17 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
 
 ### 1) Prepare session - import cookies from a profile
 
-Import cookies (include `proxy` if you logged in through one):
+Import cookies (include `proxy` if you logged in through one, `dolphin_profile_id` if using Dolphin Anty):
 
 ```bash
 curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{ "cookies": [ ... ], "proxy": "http://user:pass@host:port" }'
+  -d '{
+    "cookies": [ ... ],
+    "proxy": "http://user:pass@host:port",
+    "dolphin_profile_id": "123456"
+  }'
 ```
 
 ### 2) Create personal post
@@ -169,13 +175,17 @@ curl -X POST http://localhost:3001/reply \
 
 ### 1) Prepare session - import cookies
 
-Import cookies (include `proxy` if you logged in through one):
+Import cookies (include `proxy` if you logged in through one, `dolphin_profile_id` if using Dolphin Anty):
 
 ```bash
 curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
   -H "x-api-key: your-secret" \
   -H "Content-Type: application/json" \
-  -d '{ "cookies": [ ... ], "proxy": "http://user:pass@host:port" }'
+  -d '{
+    "cookies": [ ... ],
+    "proxy": "http://user:pass@host:port",
+    "dolphin_profile_id": "123456"
+  }'
 ```
 
 ### 2) Create a personal post
