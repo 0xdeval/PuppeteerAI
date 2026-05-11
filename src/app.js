@@ -13,7 +13,7 @@ function createApp(options = {}) {
   const apiSecret = options.apiSecret ?? process.env.API_SECRET;
   const httpTimeoutMs = options.httpTimeoutMs
     ?? (parseInt(process.env.MAX_BROWSER_TIMEOUT || '600', 10) * 1000);
-  const dataDir = options.dataDir || process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  const dataDir = options.dataDir || process.env.DATA_DIR || path.join(__dirname, '..', 'data');
   const automationService = options.automationService || defaultAutomationService;
   const profileService = options.profileService || defaultProfileService;
 

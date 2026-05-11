@@ -11,7 +11,7 @@ function createAutomationHandlers(options = {}) {
   const downloadImageImpl = options.downloadImage || downloadImage;
   const cleanupTempFileImpl = options.cleanupTempFile || cleanupTempFile;
 
-  async function post(req, res) {
+  async function post(req, res, next) {
     const { platform, avatar, text, image_url } = req.body;
 
     if (!platform || !avatar || !text) {
@@ -40,7 +40,7 @@ function createAutomationHandlers(options = {}) {
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
       console.error('[server] /post error:', err);
-      res.status(500).json({ error: err.message });
+      return next(err);
     } finally {
       await cleanupTempFileImpl(imagePath);
     }

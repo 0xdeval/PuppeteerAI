@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { Readable } = require('node:stream');
 const test = require('node:test');
 
@@ -125,4 +128,63 @@ test('POST /reply delegates valid request and returns service result', async () 
   assert.equal(runReplyArgs.avatar, 'alice');
   assert.equal(runReplyArgs.post_url, 'https://x.com/post/1');
   assert.equal(runReplyArgs.text, 'reply');
+});
+
+test('createApp default dataDir uses repo-root-relative fallback, not current working directory', async () => {
+  const repoDataDir = path.join(__dirname, '..', 'data', 'debug');
+  const tempCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'puppeteer-http-contract-'));
+  const tempDataDir = path.join(tempCwd, 'data', 'debug');
+  const repoFile = `repo-fallback-${Date.now()}.json`;
+  const tempFile = `cwd-fallback-${Date.now()}.json`;
+  const originalCwd = process.cwd();
+  const originalDataDirEnv = process.env.DATA_DIR;
+
+  fs.mkdirSync(repoDataDir, { recursive: true });
+  fs.mkdirSync(tempDataDir, { recursive: true });
+  fs.writeFileSync(path.join(repoDataDir, repoFile), '{"ok":true}');
+  fs.writeFileSync(path.join(tempDataDir, tempFile), '{"ok":true}');
+
+  try {
+    delete process.env.DATA_DIR;
+    process.chdir(tempCwd);
+
+    const app = createApp({ apiSecret: 'secret' });
+    const res = await request(app, 'GET', '/debug', null);
+
+    assert.equal(res.statusCode, 200);
+    const logFilenames = (res.body.logs || []).map((item) => item.filename);
+    assert.ok(logFilenames.includes(repoFile));
+    assert.ok(!logFilenames.includes(tempFile));
+  } finally {
+    process.chdir(originalCwd);
+    if (originalDataDirEnv === undefined) {
+      delete process.env.DATA_DIR;
+    } else {
+      process.env.DATA_DIR = originalDataDirEnv;
+    }
+    fs.rmSync(path.join(repoDataDir, repoFile), { force: true });
+    fs.rmSync(path.join(tempDataDir, tempFile), { force: true });
+    fs.rmSync(tempCwd, { recursive: true, force: true });
+  }
+});
+
+test('POST /post unknown service errors return generic 500 without leaking message', async () => {
+  const app = createApp({
+    apiSecret: 'secret',
+    automationService: {
+      runPost: async () => {
+        throw new Error('top-secret-internal-message');
+      },
+    },
+  });
+
+  const res = await request(app, 'POST', '/post', {
+    platform: 'x',
+    avatar: 'alice',
+    text: 'hello',
+  });
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error, 'Internal server error.');
+  assert.equal(JSON.stringify(res.body).includes('top-secret-internal-message'), false);
 });
