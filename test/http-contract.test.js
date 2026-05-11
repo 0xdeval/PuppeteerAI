@@ -28,9 +28,17 @@ async function request(server, method, path, body, apiKey = 'secret') {
       res.setEncoding('utf8');
       res.on('data', (chunk) => { raw += chunk; });
       res.on('end', () => {
+        let parsedBody = null;
+        if (raw) {
+          try {
+            parsedBody = JSON.parse(raw);
+          } catch {
+            parsedBody = raw;
+          }
+        }
         resolve({
           statusCode: res.statusCode,
-          body: raw ? JSON.parse(raw) : null,
+          body: parsedBody,
         });
       });
     });
@@ -62,23 +70,37 @@ test('GET /health does not require auth', async () => {
 });
 
 test('POST /post validates required fields before service call', async () => {
-  const app = createApp({ apiSecret: 'secret' });
+  let runPostCalls = 0;
+  const app = createApp({
+    apiSecret: 'secret',
+    automationService: {
+      runPost: async () => {
+        runPostCalls += 1;
+        throw new Error('runPost should not be called when fields are missing');
+      },
+    },
+  });
 
   await withServer(app, async (server) => {
     const res = await request(server, 'POST', '/post', { platform: 'x' });
     assert.equal(res.statusCode, 400);
     assert.match(res.body.error, /platform, avatar, and text are required/);
+    assert.equal(runPostCalls, 0);
   });
 });
 
 test('POST /reply delegates valid request and returns service result', async () => {
+  let runReplyArgs;
   const app = createApp({
     apiSecret: 'secret',
     automationService: {
-      runReply: async () => ({
-        httpStatus: 200,
-        body: { success: true, post_url: 'https://x.com/p/1', profileId: 'x-alice' },
-      }),
+      runReply: async (args) => {
+        runReplyArgs = args;
+        return {
+          httpStatus: 200,
+          body: { success: true, post_url: 'https://x.com/p/1', profileId: 'x-alice' },
+        };
+      },
     },
   });
 
@@ -92,5 +114,9 @@ test('POST /reply delegates valid request and returns service result', async () 
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.success, true);
+    assert.equal(runReplyArgs.platform, 'x');
+    assert.equal(runReplyArgs.avatar, 'alice');
+    assert.equal(runReplyArgs.post_url, 'https://x.com/post/1');
+    assert.equal(runReplyArgs.text, 'reply');
   });
 });
