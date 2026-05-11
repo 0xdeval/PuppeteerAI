@@ -1,33 +1,57 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const http = require('node:http');
+const { Readable } = require('node:stream');
 const test = require('node:test');
 
 const { createApp } = require('../src/app');
 
-async function request(server, method, path, body, apiKey = 'secret') {
-  const address = server.address();
+async function request(app, method, path, body, apiKey = 'secret') {
   const payload = body == null ? null : JSON.stringify(body);
 
   return new Promise((resolve, reject) => {
-    const req = http.request({
-      hostname: '127.0.0.1',
-      port: address.port,
-      method,
-      path,
-      headers: {
-        ...(apiKey ? { 'x-api-key': apiKey } : {}),
-        ...(payload ? {
-          'content-type': 'application/json',
-          'content-length': Buffer.byteLength(payload),
-        } : {}),
+    const req = new Readable({
+      read() {
+        if (payload) this.push(payload);
+        this.push(null);
       },
-    }, (res) => {
-      let raw = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => { raw += chunk; });
-      res.on('end', () => {
+    });
+    req.method = method;
+    req.url = path;
+    req.headers = {
+      ...(apiKey ? { 'x-api-key': apiKey } : {}),
+      ...(payload ? {
+        'content-type': 'application/json',
+        'content-length': String(Buffer.byteLength(payload)),
+      } : {}),
+    };
+
+    const chunks = [];
+    const headers = {};
+    const res = {
+      statusCode: 200,
+      headersSent: false,
+      setHeader(name, value) {
+        headers[name.toLowerCase()] = value;
+      },
+      getHeader(name) {
+        return headers[name.toLowerCase()];
+      },
+      removeHeader(name) {
+        delete headers[name.toLowerCase()];
+      },
+      writeHead(statusCode, responseHeaders = {}) {
+        this.statusCode = statusCode;
+        Object.entries(responseHeaders).forEach(([name, value]) => this.setHeader(name, value));
+        this.headersSent = true;
+      },
+      write(chunk) {
+        if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      },
+      end(chunk) {
+        if (chunk) this.write(chunk);
+        this.headersSent = true;
+        const raw = Buffer.concat(chunks).toString('utf8');
         let parsedBody = null;
         if (raw) {
           try {
@@ -37,36 +61,22 @@ async function request(server, method, path, body, apiKey = 'secret') {
           }
         }
         resolve({
-          statusCode: res.statusCode,
+          statusCode: this.statusCode,
           body: parsedBody,
         });
-      });
-    });
+      },
+    };
 
-    req.on('error', reject);
-    if (payload) req.write(payload);
-    req.end();
+    app.handle(req, res, reject);
   });
-}
-
-async function withServer(app, fn) {
-  const server = http.createServer(app);
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  try {
-    await fn(server);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
 }
 
 test('GET /health does not require auth', async () => {
   const app = createApp({ apiSecret: 'secret' });
 
-  await withServer(app, async (server) => {
-    const res = await request(server, 'GET', '/health', null, null);
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.body.status, 'ok');
-  });
+  const res = await request(app, 'GET', '/health', null, null);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.status, 'ok');
 });
 
 test('POST /post validates required fields before service call', async () => {
@@ -81,12 +91,10 @@ test('POST /post validates required fields before service call', async () => {
     },
   });
 
-  await withServer(app, async (server) => {
-    const res = await request(server, 'POST', '/post', { platform: 'x' });
-    assert.equal(res.statusCode, 400);
-    assert.match(res.body.error, /platform, avatar, and text are required/);
-    assert.equal(runPostCalls, 0);
-  });
+  const res = await request(app, 'POST', '/post', { platform: 'x' });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.error, /platform, avatar, and text are required/);
+  assert.equal(runPostCalls, 0);
 });
 
 test('POST /reply delegates valid request and returns service result', async () => {
@@ -104,19 +112,17 @@ test('POST /reply delegates valid request and returns service result', async () 
     },
   });
 
-  await withServer(app, async (server) => {
-    const res = await request(server, 'POST', '/reply', {
-      platform: 'x',
-      avatar: 'alice',
-      post_url: 'https://x.com/post/1',
-      text: 'reply',
-    });
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.body.success, true);
-    assert.equal(runReplyArgs.platform, 'x');
-    assert.equal(runReplyArgs.avatar, 'alice');
-    assert.equal(runReplyArgs.post_url, 'https://x.com/post/1');
-    assert.equal(runReplyArgs.text, 'reply');
+  const res = await request(app, 'POST', '/reply', {
+    platform: 'x',
+    avatar: 'alice',
+    post_url: 'https://x.com/post/1',
+    text: 'reply',
   });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(runReplyArgs.platform, 'x');
+  assert.equal(runReplyArgs.avatar, 'alice');
+  assert.equal(runReplyArgs.post_url, 'https://x.com/post/1');
+  assert.equal(runReplyArgs.text, 'reply');
 });
