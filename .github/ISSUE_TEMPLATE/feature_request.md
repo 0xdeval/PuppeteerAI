@@ -1,27 +1,15 @@
 ---
 name: Feature request
-about: Propose an enhancement for Avatar Browser Service
-title: "[Feature] "
+about: Suggest an improvement
+title: "[Feature]: "
 labels: enhancement
 assignees: ""
 ---
 
-## Problem
+## Use case
 
-What user problem does this solve?
+## Proposed behavior
 
-## Proposed Solution
+## Alternatives considered
 
-Describe your preferred approach.
-
-## Alternatives Considered
-
-Describe other options you considered.
-
-## API / UX Impact
-
-List endpoint, payload, or workflow changes if applicable.
-
-## Additional Context
-
-Any references, examples, or constraints.
+## Compatibility impact

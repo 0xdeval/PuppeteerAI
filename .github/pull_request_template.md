@@ -1,21 +1,15 @@
 ## Summary
 
-Describe the goal of this PR and the key changes.
+## Compatibility
 
-## Changes
-
-- 
+- [ ] Existing endpoints remain compatible
+- [ ] API/documentation changes are documented
 
 ## Verification
 
 - [ ] `npm test`
-- [ ] Docs updated (if user-facing behavior changed)
-- [ ] No secrets/cookies/tokens included
+- [ ] Manual smoke test, if relevant
 
-## Risk / Rollback
+## Security
 
-Describe risks and how to revert if needed.
-
-## Follow-ups
-
-List any deferred work.
+- [ ] No secrets, cookies, profile data, or debug artifacts committed

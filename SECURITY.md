@@ -1,19 +1,12 @@
-# Security Policy
+# Security
 
-## Reporting a Vulnerability
+## Reporting Vulnerabilities
 
-Please report security vulnerabilities privately.
+Please report security issues privately to the project maintainer instead of opening a public issue. Include reproduction steps, affected configuration, and any relevant logs with secrets removed.
 
-- Email: `security@example.com` (replace with your project security contact)
-- Include affected endpoint(s), reproduction steps, and impact assessment.
-- Do not open public GitHub issues for unpatched vulnerabilities.
+## Secret Handling
 
-We will acknowledge receipt and coordinate disclosure after validation and patching.
-
-## Secret Handling Guidance
-
-- Never commit real API keys, cookies, or bearer tokens.
-- Treat `API_SECRET`, `LLM_API_KEY`, `DOLPHIN_API_TOKEN`, and exported cookies as sensitive.
-- Use `.env.example` placeholders only; keep real values in local `.env` or secret managers.
-- Rotate credentials immediately if exposure is suspected.
-- Redact logs, screenshots, and traces before sharing externally.
+- Never commit `.env`, cookies, profile data, Dolphin tokens, API keys, or debug screenshots.
+- Treat exported social platform cookies as account credentials.
+- Use a strong `API_SECRET` for every non-local deployment.
+- Keep `DATA_DIR` on trusted storage because it contains browser sessions.

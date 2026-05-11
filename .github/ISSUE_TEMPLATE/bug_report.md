@@ -1,40 +1,24 @@
 ---
 name: Bug report
-about: Report a reproducible problem in Avatar Browser Service
-title: "[Bug] "
+about: Report a reproducible problem
+title: "[Bug]: "
 labels: bug
 assignees: ""
 ---
 
-## Summary
+## What happened?
 
-Describe the problem in one or two sentences.
+## Expected behavior
+
+## Steps to reproduce
 
 ## Environment
 
-- OS:
-- Node.js version:
-- Deployment mode: local / Docker / RunPod
-- LLM provider:
+- Node version:
+- Deployment: local / Docker / RunPod
+- Platform: X / Facebook
+- Browser backend: Playwright / Dolphin
 
-## Steps To Reproduce
+## Logs
 
-1.
-2.
-3.
-
-## Expected Behavior
-
-What should happen?
-
-## Actual Behavior
-
-What happened instead?
-
-## Logs / Evidence
-
-Include relevant sanitized logs or screenshots.
-
-## Additional Context
-
-Anything else maintainers should know.
+Remove API keys, cookies, tokens, and profile data before posting.
