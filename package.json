@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "healthcheck": "bash scripts/healthcheck.sh"
+    "healthcheck": "bash scripts/healthcheck.sh",
+    "test": "node --test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
