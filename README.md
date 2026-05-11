@@ -86,7 +86,14 @@ curl -X POST http://localhost:3001/profiles/x-alice/cookies \
   -H "x-api-key: change-me-to-a-strong-random-secret" \
   -H "Content-Type: application/json" \
   -d '{
-    "cookies": ["paste-exported-cookie-objects-here"],
+    "cookies": [
+      {
+        "name": "session-cookie-name",
+        "value": "session-cookie-value",
+        "domain": ".x.com",
+        "path": "/"
+      }
+    ],
     "proxy": "http://username:password@host:port"
   }'
 ```
@@ -99,7 +106,7 @@ The `proxy` field is optional but recommended for account stability.
 - Reply on X: `POST /reply` with `platform: "x"`
 - Post to Facebook: `POST /post` with `platform: "facebook"`
 - Comment on Facebook: `POST /reply` with `platform: "facebook"`
-- Parse visible Facebook posts: `POST /parse` with `platform: "facebook"`
+- Parse visible Facebook posts: `POST /scrape` with `platform: "facebook"`
 
 ## Cookie Export and Session Import (Detailed)
 
@@ -297,8 +304,8 @@ Per avatar+platform:
 | `LLM_FALLBACK_PROVIDER` | No | same as primary | Optional fallback provider |
 | `LLM_FALLBACK_API_KEY` | No | — | API key for fallback provider |
 | `PORT` | No | `3001` | API port |
-| `DATA_DIR` | No | `/app/data` | Persistent storage root |
-| `MAX_BROWSER_TIMEOUT` | No | `120` | Max browser runtime per request (seconds) |
+| `DATA_DIR` | No | `./data` | Persistent storage root. Docker examples use `/app/data` |
+| `MAX_BROWSER_TIMEOUT` | No | `600` | Max browser runtime per request (seconds). `.env.example` recommends `120` |
 | `MAX_AI_RETRIES` | No | `3` | AI retries per action |
 | `RATE_LIMIT_MIN_INTERVAL` | No | `60` | Min seconds between posts |
 | `RATE_LIMIT_DAILY_MAX` | No | `20` | Max daily posts per avatar |
