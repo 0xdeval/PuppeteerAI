@@ -39,7 +39,6 @@ function createAutomationHandlers(options = {}) {
 
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
-      console.error('[server] /post error:', err);
       return next(err);
     } finally {
       await cleanupTempFileImpl(imagePath);
@@ -64,7 +63,6 @@ function createAutomationHandlers(options = {}) {
 
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
-      console.error('[server] /reply error:', err);
       return next(err);
     }
   }
@@ -92,7 +90,6 @@ function createAutomationHandlers(options = {}) {
 
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
-      console.error('[server] /scrape error:', err);
       return next(err);
     }
   }
