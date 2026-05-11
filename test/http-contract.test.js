@@ -188,3 +188,42 @@ test('POST /post unknown service errors return generic 500 without leaking messa
   assert.equal(res.body.error, 'Internal server error.');
   assert.equal(JSON.stringify(res.body).includes('top-secret-internal-message'), false);
 });
+
+test('POST /reply unknown service errors return generic 500 without leaking message', async () => {
+  const app = createApp({
+    apiSecret: 'secret',
+    automationService: {
+      runReply: async () => {
+        throw new Error('reply-secret-message');
+      },
+    },
+  });
+
+  const res = await request(app, 'POST', '/reply', {
+    platform: 'x',
+    avatar: 'alice',
+    post_url: 'https://x.com/post/1',
+    text: 'reply',
+  });
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error, 'Internal server error.');
+  assert.equal(JSON.stringify(res.body).includes('reply-secret-message'), false);
+});
+
+test('GET /profiles/:profileId/cookies unknown service errors return generic 500 without leaking message', async () => {
+  const app = createApp({
+    apiSecret: 'secret',
+    profileService: {
+      readCookiesSummary: () => {
+        throw new Error('cookies-secret-message');
+      },
+    },
+  });
+
+  const res = await request(app, 'GET', '/profiles/x-alice/cookies', null);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.body.error, 'Internal server error.');
+  assert.equal(JSON.stringify(res.body).includes('cookies-secret-message'), false);
+});

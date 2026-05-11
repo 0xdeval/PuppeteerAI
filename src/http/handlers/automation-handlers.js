@@ -46,7 +46,7 @@ function createAutomationHandlers(options = {}) {
     }
   }
 
-  async function reply(req, res) {
+  async function reply(req, res, next) {
     const { platform, avatar, post_url, text } = req.body;
 
     if (!platform || !avatar || !post_url || !text) {
@@ -65,11 +65,11 @@ function createAutomationHandlers(options = {}) {
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
       console.error('[server] /reply error:', err);
-      res.status(500).json({ error: err.message });
+      return next(err);
     }
   }
 
-  async function scrape(req, res) {
+  async function scrape(req, res, next) {
     const { platform, avatar, profile_url, limit } = req.body;
 
     if (!platform || !avatar || !profile_url) {
@@ -93,7 +93,7 @@ function createAutomationHandlers(options = {}) {
       return res.status(result.httpStatus).json(result.body);
     } catch (err) {
       console.error('[server] /scrape error:', err);
-      res.status(500).json({ error: err.message });
+      return next(err);
     }
   }
 

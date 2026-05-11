@@ -13,7 +13,7 @@ function createProfileHandlers(options = {}) {
     res.json({ profiles: allProfiles });
   }
 
-  function deleteProfileById(req, res) {
+  function deleteProfileById(req, res, next) {
     const { profileId } = req.params;
 
     try {
@@ -23,11 +23,11 @@ function createProfileHandlers(options = {}) {
       if (err.message.includes('not found')) {
         return res.status(404).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      return next(err);
     }
   }
 
-  function importCookies(req, res) {
+  function importCookies(req, res, next) {
     const { profileId } = req.params;
     const { cookies } = req.body;
 
@@ -56,11 +56,11 @@ function createProfileHandlers(options = {}) {
       if (err.message.includes('profileId must be in format')) {
         return res.status(400).json({ error: err.message });
       }
-      res.status(500).json({ error: err.message });
+      return next(err);
     }
   }
 
-  function getCookies(req, res) {
+  function getCookies(req, res, next) {
     const { profileId } = req.params;
 
     try {
@@ -71,7 +71,7 @@ function createProfileHandlers(options = {}) {
 
       res.json(summary);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return next(err);
     }
   }
 
