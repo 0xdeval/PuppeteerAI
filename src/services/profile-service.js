@@ -13,23 +13,34 @@ function createProfileService(deps = {}) {
   const profileDir = deps.profileDir || profiles.profileDir;
   const makeProfileId = deps.generateProfileId || generateProfileId;
   const fsImpl = deps.fs || fs;
+  const profileIdFormatError =
+    'profileId must be in format {platform}-{avatar}, e.g. x-john-firemool';
 
-  function ensureProfile(platform, avatar) {
-    const profileId = makeProfileId(platform, avatar);
+  function getOrCreateProfile(profileId, platform, avatar) {
     let profile = getProfile(profileId);
     if (!profile) {
       profile = createProfile(profileId, { platform, avatar, status: 'needs_login' });
     }
+    return profile;
+  }
+
+  function ensureProfile(platform, avatar) {
+    const profileId = makeProfileId(platform, avatar);
+    const profile = getOrCreateProfile(profileId, platform, avatar);
     return { profile, profileId };
   }
 
   function parseProfileId(profileId) {
+    if (typeof profileId !== 'string' || profileId.trim().length === 0) {
+      throw new Error(profileIdFormatError);
+    }
+
     const firstDash = profileId.indexOf('-');
     const platform = firstDash !== -1 ? profileId.slice(0, firstDash) : '';
     const avatar = firstDash !== -1 ? profileId.slice(firstDash + 1) : '';
 
     if (!platform || !avatar) {
-      throw new Error('profileId must be in format {platform}-{avatar}, e.g. x-john-firemool');
+      throw new Error(profileIdFormatError);
     }
 
     return { platform, avatar };
@@ -37,10 +48,7 @@ function createProfileService(deps = {}) {
 
   function ensureProfileById(profileId) {
     const { platform, avatar } = parseProfileId(profileId);
-    let profile = getProfile(profileId);
-    if (!profile) {
-      profile = createProfile(profileId, { platform, avatar, status: 'needs_login' });
-    }
+    const profile = getOrCreateProfile(profileId, platform, avatar);
     return { profile, profileId, platform, avatar };
   }
 
@@ -65,7 +73,17 @@ function createProfileService(deps = {}) {
       return null;
     }
 
-    const cookies = JSON.parse(fsImpl.readFileSync(cookiesPath, 'utf8'));
+    let cookies;
+    try {
+      cookies = JSON.parse(fsImpl.readFileSync(cookiesPath, 'utf8'));
+    } catch (error) {
+      throw new Error(`Invalid cookies file for ${profileId}: ${error.message}`);
+    }
+
+    if (!Array.isArray(cookies)) {
+      throw new Error(`Invalid cookies file for ${profileId}: expected a JSON array`);
+    }
+
     return {
       profileId,
       cookieCount: cookies.length,
