@@ -22,6 +22,10 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 
+# Local/raw demo recordings may contain account, proxy, or post details.
+# Publish only sanitized media intentionally.
+docs/demo.mp4
+
 # OS files
 Thumbs.db
 .DS_Store

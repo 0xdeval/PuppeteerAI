@@ -1,5 +1,11 @@
 # Avatar Browser Service
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933.svg)
+![Tests](https://img.shields.io/badge/tests-node%20--test-2ea44f.svg)
+![Platforms](https://img.shields.io/badge/platforms-X%20%2B%20Facebook-111827.svg)
+![Automation](https://img.shields.io/badge/automation-Playwright%20%2B%20Dolphin-fbca04.svg)
+
 AI-guided browser automation for posting and replying on X and Facebook with persistent per-avatar browser profiles.
 
 ## What This Solves
