@@ -304,7 +304,7 @@ Per avatar+platform:
 | `LLM_FALLBACK_PROVIDER` | No | same as primary | Optional fallback provider |
 | `LLM_FALLBACK_API_KEY` | No | — | API key for fallback provider |
 | `PORT` | No | `3001` | API port |
-| `DATA_DIR` | No | `./data` | Persistent storage root. Docker examples use `/app/data` |
+| `DATA_DIR` | No | repo-root `data/` | Persistent storage root. Docker examples use `/app/data` |
 | `MAX_BROWSER_TIMEOUT` | No | `600` | Max browser runtime per request (seconds). `.env.example` recommends `120` |
 | `MAX_AI_RETRIES` | No | `3` | AI retries per action |
 | `RATE_LIMIT_MIN_INTERVAL` | No | `60` | Min seconds between posts |
