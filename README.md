@@ -8,6 +8,12 @@
 
 AI-guided browser automation for posting and replying on X and Facebook with persistent per-avatar browser profiles.
 
+## Demo
+
+[![Avatar Browser Service demo](./docs/demo-preview.png)](./docs/demo.mp4)
+
+[Watch the demo video](./docs/demo.mp4).
+
 ## What This Solves
 
 - Post personal updates on X using AI-guided browser actions.
