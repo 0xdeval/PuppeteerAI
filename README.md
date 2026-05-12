@@ -324,4 +324,4 @@ See [SECURITY.md](./SECURITY.md).
 
 ## License
 
-MIT
+MIT. See [LICENSE](./LICENSE).

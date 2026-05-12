@@ -1,8 +1,19 @@
 {
   "name": "avatar-browser-service",
   "version": "1.0.0",
-  "description": "Headless browser service for AI avatar social media posting",
+  "description": "AI browser automation service for posting, replying, commenting, and parsing X/Facebook content with persistent avatar profiles",
   "main": "server.js",
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "browser-automation",
+    "social-media",
+    "x",
+    "facebook",
+    "playwright",
+    "puppeteer",
+    "avatar"
+  ],
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",

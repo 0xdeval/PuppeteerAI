@@ -68,7 +68,7 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
         "sameSite": "Lax"
       }
     ],
-    "proxy": "http://username:password@31.59.20.176:6754",
+    "proxy": "http://username:password@proxy.example.com:6754",
     "dolphin_profile_id": "123456"
   }'
 ```
@@ -118,7 +118,7 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
         "sameSite": "None"
       }
     ],
-    "proxy": "http://username:password@179.61.172.144:6695",
+    "proxy": "http://username:password@proxy.example.com:6695",
     "dolphin_profile_id": "123456"
   }'
 ```
