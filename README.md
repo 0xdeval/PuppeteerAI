@@ -10,6 +10,8 @@ AI-guided browser automation for posting and replying on X and Facebook with per
 
 ![Avatar Browser Service demo](./docs/demo.gif)
 
+> ‼️ Note: This is an experimental project intended to highlight current platform limitations. It is not meant to encourage users to violate any platform's Terms of Service (ToS) or other agreements
+
 ## What This Solves
 
 - Post personal updates on X using AI-guided browser actions.
