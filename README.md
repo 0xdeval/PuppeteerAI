@@ -1,196 +1,188 @@
-# Puppeteer Service
+# Puppeteer AI
 
-A REST API that manages headless browser instances to post on social media (X/Twitter, Facebook) on behalf of multiple AI avatars. Each avatar has its own persistent browser profile so sessions survive between requests.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933.svg)
+![Tests](https://img.shields.io/badge/tests-node%20--test-2ea44f.svg)
+![Platforms](https://img.shields.io/badge/platforms-X%20%2B%20Facebook-111827.svg)
+![Automation](https://img.shields.io/badge/automation-Playwright%20%2B%20Dolphin-fbca04.svg)
 
----
+AI-guided browser automation for posting and replying on X and Facebook with persistent per-avatar browser profiles.
 
-## Table of Contents
+![Avatar Browser Service demo](./docs/demo.gif)
 
-- [How It Works](#how-it-works)
-- [Get Started](#get-started)
-  - [Running with AI providers](#running-with-ai-providers)
-  - [First-Time Launch](#first-time-launch)
-  - [Typical Workflow](#typical-workflow)
-- [Dolphin Anty Integration](#dolphin-anty-integration)
-- [API Reference](#api-reference)
-- [Other Launching Options](#other-launching-options)
-  - [Running with Docker](#running-with-docker)
-  - [Deploying to RunPod](#deploying-to-runpod-one-click-deployment)
-- [Platform Notes](#platform-notes)
-- [Rate Limits](#rate-limits)
-- [Environment Variables](#environment-variables)
-- [License](#license)
+## What This Solves
 
----
+- Post personal updates on X using AI-guided browser actions.
+- Reply to X posts using AI-guided browser actions.
+- Post personal updates on Facebook.
+- Comment on Facebook posts.
+- Parse visible posts from a Facebook profile or page.
 
 ## How It Works
 
-```
-n8n / your app  →  POST /post  →  Puppeteer Service  →  X / Facebook
-                                          ↓
-                               /data/profiles/{platform}-{avatar}/
-                               (persistent cookies — avatar stays logged in)
+```text
+client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Facebook
 ```
 
 - No browser stays open permanently. A browser launches per request, does the job, and closes.
-- AI vision (Claude / OpenAI / Ollama / OpenRouter) drives all browser actions — no hardcoded selectors.
-- Each avatar × platform pair has its own cookie profile stored on disk.
+- AI vision (Anthropic / OpenAI / Ollama / OpenRouter) drives browser actions.
+- Each avatar + platform pair has its own persistent cookie/profile directory.
 
----
+## Quickstart
 
-## Get started
+### Prerequisites
 
-### Running with AI providers
+- Node.js 20+
+- npm
+- One supported LLM provider (Anthropic/OpenAI/OpenRouter) or local Ollama
 
-**Prerequisites:** Node.js 20+, an Anthropic/OpenAI/OpenRouter API key.
-
-**1. Install dependencies**v
+### 1) Install dependencies
 
 ```bash
 npm install
 npx playwright install chromium
 ```
 
-**2. Configure environment. Edit `.env` — minimum required fields**
+### 2) Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-**For OpenAI/Anthropic:**
+Set at least:
 
 ```bash
-# For service auth
-API_SECRET=any-secret-string
-
-# Model settings
+API_SECRET=change-me-to-a-strong-random-secret
 LLM_PROVIDER=anthropic
-LLM_API_KEY=sk-ant-your-key-here
-DATA_DIR=/Users/yourname/path/to/project/data   # absolute local path
+LLM_API_KEY=your-anthropic-or-openai-api-key-here
+DATA_DIR=/absolute/path/to/puppeteer/data
 ```
 
-**For OpenRouter:**
+For OpenRouter:
 
 ```bash
-# For service auth
-API_SECRET=any-secret-string
-
 LLM_PROVIDER=openai
-LLM_API_KEY=sk... # API key for the primary LLM provider
+LLM_API_KEY=your-openrouter-api-key-here
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_MODEL_PRIMARY=anthropic/claude-sonnet-4
 LLM_MODEL_FALLBACK=anthropic/claude-sonnet-4
 ```
 
-**For Ollama:**
+For Ollama:
 
 ```bash
-# For service auth
-API_SECRET=any-secret-string
-
 LLM_PROVIDER=ollama
-LLM_BASE_URL=http://localhost:11434/v1 # if you running the model locally
+LLM_BASE_URL=http://localhost:11434/v1
 LLM_MODEL_PRIMARY=qwen2.5vl:7b
 LLM_MODEL_FALLBACK=qwen2.5vl:7b
 ```
 
-**3. Start the server**
+### 3) Start the service
 
 ```bash
 npm start
 ```
 
-**4. Server listens on `http://localhost:3001`**
+API runs on `http://localhost:3001` by default.
 
----
+### 4) One-time profile setup per avatar+platform
 
-### First-Time launch
-
-New avatars need a one-time session import before they can post automatically.
-
-#### Cookie Import (avoids bot detection and additional login)
-
-X and Facebook actively block login attempts from automated browsers. The reliable approach is to log in normally in your real Chrome, export the cookies, and import them into the service.
-
-> **Important — IP consistency:** Platforms track the IP address associated with each session. If you log in from one IP and then automate from a different IP (e.g. your Mac vs. a RunPod server), the account may be temporarily blocked. To prevent this, use the **same residential proxy** for both login on your machine and automation on RunPod. See the proxy setup steps below.
-
-**[Optional] Step 0 — Get a proxy.** You can get free or paid [Webshare](https://webshare.io) to avoid any blocks
-
-**Step 1 — Install the [Cookie-Editor](https://cookie-editor.com) extension** in Chrome (with proxy active) OR export cookies using DevTool in your browser (DevTool -> Application -> Export necessary cookies)
-
-**Step 2 — Log into X (or Facebook) normally** in that browser as the avatar account.
-
-**Step 3 — Export the cookies:**
-
-- Click the Cookie-Editor icon
-- Click **Export → Export as JSON**
-- This copies the cookies JSON to your clipboard
-
-> Necessary cookies can be found in [API_REFERENCES section](https://github.com/0xdeval/puppeteer/blob/main/API_REFERENCES.md)
-
-**Step 4 — Import into the service, including the proxy:**
+Import cookies once for each profile (`x-alice`, `facebook-bob`, etc.):
 
 ```bash
-curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
-  -H "x-api-key: your-secret" \
+curl -X POST http://localhost:3001/profiles/x-alice/cookies \
+  -H "x-api-key: change-me-to-a-strong-random-secret" \
   -H "Content-Type: application/json" \
   -d '{
-    "cookies": [ <paste your cookies array here> ],
-    "proxy": "http://username:password@31.59.20.176:6754",
-    "dolphin_profile_id": "123456"
+    "cookies": [
+      {
+        "name": "session-cookie-name",
+        "value": "session-cookie-value",
+        "domain": ".x.com",
+        "path": "/"
+      }
+    ],
+    "proxy": "http://username:password@host:port"
   }'
 ```
 
-> `proxy` field is optional. You can run an avatar without proxy, but it will increase the chance of blocking an account
+The `proxy` field is optional but recommended for account stability.
 
-The `proxy` field tells the automation server to use the same IP for all future requests for this profile — so the platform always sees a consistent IP.
+### 5) Use the five supported workflows
 
-Profile status becomes `ready` immediately. The avatar can now post automatically.
+- Post to X: `POST /post` with `platform: "x"`
+- Reply on X: `POST /reply` with `platform: "x"`
+- Post to Facebook: `POST /post` with `platform: "facebook"`
+- Comment on Facebook: `POST /reply` with `platform: "facebook"`
+- Parse visible Facebook posts: `POST /scrape` with `platform: "facebook"`
 
----
+## Cookie Export and Session Import (Detailed)
 
-Repeat for each avatar × platform combination (`x-sarah-blaze`, `facebook-john-firemool`, etc.).
+New avatars need session import before automation can run reliably.
 
-### Typical Workflow
+### Why cookie import is recommended
 
-```
-1. Start service              →  npm start  (local)  or  docker compose up  (VPS)
-2. Add new avatar             →  log in manually in Chrome, export cookies with Cookie-Editor
-3. Import cookies             →  POST /profiles/x-avatarname/cookies
-4. Check status               →  GET  /profiles
-5. Post content               →  POST /post
-6. Reply to a post            →  POST /reply
-7. If session expires         →  re-export and re-import cookies for that avatar
-8. Retire an avatar           →  DELETE /profiles/x-avatarname
+X and Facebook often challenge scripted login flows. The stable path is:
+
+1. Log in manually in normal Chrome.
+2. Export cookies.
+3. Import cookies into this service.
+
+### IP consistency guidance
+
+Platforms track session origin. If login and automation come from different IPs, accounts can be challenged.
+Use the same residential proxy for login and automation when possible.
+
+### Export/import steps
+
+1. Install [Cookie-Editor](https://cookie-editor.com) or export from browser devtools.
+2. Log in normally to the target account.
+3. Export cookies as JSON.
+4. Import with `POST /profiles/:id/cookies`.
+
+Cookie fields needed per platform are documented in [API_REFERENCES.md](./API_REFERENCES.md).
+
+## Typical Workflow
+
+```text
+1. Start service       -> npm start (local) or docker compose up (VPS)
+2. Add avatar          -> manual login in normal browser
+3. Import cookies      -> POST /profiles/:id/cookies
+4. Check readiness     -> GET /profiles
+5. Post or reply       -> POST /post or POST /reply
+6. Session expires     -> re-export and re-import cookies
+7. Retire avatar       -> DELETE /profiles/:id
 ```
 
 ## Dolphin Anty Integration
 
-[Dolphin Anty](https://dolphin-anty.com) is an anti-detect browser that assigns each profile a unique, realistic browser fingerprint (WebGL, canvas, fonts, hardware metrics, User-Agent). When a Dolphin profile ID is attached to an avatar, the service connects to Dolphin via CDP instead of launching a plain Playwright browser — Dolphin owns the fingerprint and browser state, while the service drives it.
+[Dolphin Anty](https://dolphin-anty.com) provides anti-detect browser fingerprints.
+If a profile has `dolphinProfileId`, the service connects to Dolphin via CDP instead of launching plain Playwright.
 
 ### When to use it
 
-Use Dolphin when plain Playwright gets flagged by platform bot detection. It is optional — avatars without a `dolphinProfileId` continue to use the built-in Playwright path.
+Use Dolphin only when plain Playwright sessions are repeatedly flagged.
+If no Dolphin profile is configured, built-in Playwright is used automatically.
 
 ### Prerequisites
 
-- Dolphin Anty installed and running (on VPS or local machine). The app exposes a local REST API — if you run both this service and Dolphin on the same host, make sure they use different ports (`PORT` for this service, Dolphin defaults to `3001`).
-- An active [Dolphin Anty account](https://dolphin-anty.com) — the local API requires a Bearer token tied to your account.
-- API token generated at `https://dolphin-anty.com/panel` → API tokens → Generate token. **Shown only once — copy it immediately.** Set it as `DOLPHIN_API_TOKEN` in `.env`.
+- Dolphin Anty app installed and running
+- Active Dolphin account
+- API token from `https://dolphin-anty.com/panel`
+
+### Environment variables
+
+```bash
+DOLPHIN_API_URL=http://localhost:3001
+DOLPHIN_API_TOKEN=your-dolphin-api-token-here
+```
 
 ### Profile management
 
-Browser profiles (fingerprint, proxy, name) are created and managed entirely in the **Dolphin Anty desktop application** — not through this service's API. Use the desktop app to:
+Dolphin profile creation is done in the Dolphin desktop app.
+Assign one Dolphin profile per avatar to avoid fingerprint reuse.
 
-- Create profiles (assign fingerprint, proxy, OS, screen resolution)
-- Clone or duplicate profiles as a starting point for new avatars
-- Monitor which profiles are active
-
-Each avatar should have its **own dedicated Dolphin profile** — sharing one profile ID across avatars defeats the anti-detect purpose (same fingerprint = same browser identity).
-
-### Wiring a Dolphin profile to an avatar
-
-Once you have a profile in Dolphin, copy its numeric ID from the desktop app and add it to the avatar's entry in `data/registry.json`:
+Attach `dolphinProfileId` in `data/registry.json`:
 
 ```json
 {
@@ -206,72 +198,41 @@ Once you have a profile in Dolphin, copy its numeric ID from the desktop app and
 }
 ```
 
-From this point the avatar follows the normal cookie import flow (see [First-Time Launch](#first-time-launch)). The service will automatically use Dolphin's CDP endpoint instead of Playwright when it sees `dolphinProfileId`.
-
-### Environment variables
-
-```bash
-DOLPHIN_API_URL=http://localhost:3001   # Dolphin local API (adjust port if needed)
-DOLPHIN_API_TOKEN=your-token-here       # Bearer token from dolphin-anty.com panel
-```
-
----
-
 ## API Reference
 
-All API endpoints are available on [the following section](https://github.com/0xdeval/puppeteer/blob/main/API_REFERENCES.md)
+All endpoints and payloads are documented in [API_REFERENCES.md](./API_REFERENCES.md).
 
-## Other launching options
+## Other Launching Options
 
 ### Running with Docker
 
-Use Docker when deploying to a VPS or when you want an isolated, reproducible environment.
+```bash
+cp .env.example .env
+# Edit .env (keep DATA_DIR=/app/data in Docker)
+docker compose up --build
+```
+
+Stop:
 
 ```bash
-# 1. Configure environment
-cp .env.example .env
-# Edit .env — leave DATA_DIR as /app/data (the Docker default)
-
-# 2. Build and start
-docker compose up --build
-
-# 3. Stop
 docker compose down
 ```
 
-Data (browser profiles, registry) is stored in a Docker volume and survives restarts.
-
-| Port | Purpose |
-| ---- | ------- |
-| 3001 | API     |
-
----
+Data is stored in Docker volume-backed `/app/data` and survives restarts.
 
 ### Deploying to RunPod (one click deployment)
 
-For GPU-accelerated deployments using the local `qwen2.5vl:7b` model via Ollama, use the pre-built RunPod image defined in `Dockerfile.runpod`.
+Use `Dockerfile.runpod` for GPU deployments with local Ollama models.
 
-#### Why a custom image?
-
-The base RunPod startup script downloads the model (~8-9 GB) every cold start, taking 3-10 minutes. The custom image bakes in the model at build time so startup takes **under 1 minute**.
-
-#### Build and push the image
+Build and push:
 
 ```bash
-# Build (first time takes 15-30 min — model download is ~8-9 GB)
-# --platform linux/amd64 is required when building on Apple Silicon (M1/M2/M3/M4)
 docker build --platform linux/amd64 -f Dockerfile.runpod -t yourdockerhubuser/avatar-worker:latest .
-
-# Push to Docker Hub
 docker login
 docker push yourdockerhubuser/avatar-worker:latest
-
-# Subsequent builds are fast — model layer is cached, only npm layer rebuilds
 ```
 
-Replace `yourdockerhubuser` with your actual Docker Hub username.
-
-#### RunPod API request body (n8n)
+RunPod request body example:
 
 ```json
 {
@@ -301,7 +262,7 @@ Replace `yourdockerhubuser` with your actual Docker Hub username.
   "name": "Avatar-Worker-REST",
   "env": {
     "SSH_PRIVATE_KEY": "{{ $vars.GithubAuthToken}}",
-    "API_SECRET": "your-secret",
+    "API_SECRET": "change-me-to-a-strong-random-secret",
     "LLM_PROVIDER": "ollama",
     "LLM_BASE_URL": "http://localhost:11434/v1",
     "LLM_MODEL_PRIMARY": "qwen3-vl:8b",
@@ -313,74 +274,62 @@ Replace `yourdockerhubuser` with your actual Docker Hub username.
 }
 ```
 
-#### What happens at runtime (`runpod-entrypoint.sh`)
+Runtime startup (`runpod-entrypoint.sh`):
 
-1. SSH key from `SSH_PRIVATE_KEY` env var is written to `~/.ssh/id_rsa`
-2. Repo is cloned from `git@github.com:0xdeval/puppeteer.git` into `/app` (pre-installed `node_modules` are preserved)
-3. `/app/.env` is written from the env vars above
-4. Xvfb virtual display is started (required for headed Playwright sessions)
-5. Ollama is started — the model is already present so it's ready in ~10s
-6. `npm run start` launches the API
-
-#### Startup time breakdown
-
-| Step                            | Time        |
-| ------------------------------- | ----------- |
-| SSH setup                       | ~2s         |
-| `git clone`                     | ~5-10s      |
-| `npm install` (diff only)       | ~5s         |
-| Ollama ready (model pre-loaded) | ~10s        |
-| **Total**                       | **~30-45s** |
-
-Compared to **3-10 min** with the base image that downloads the model on every cold start.
-
----
+1. Writes SSH key from `SSH_PRIVATE_KEY`
+2. Clones repo into `/app`
+3. Writes `/app/.env` from env vars
+4. Starts Xvfb
+5. Starts Ollama
+6. Starts API with `npm run start`
 
 ## Platform Notes
 
-- Use platform values consistently as `x` or `facebook` in request bodies.
-- Keep profile IDs consistent with those platform values: `x-{avatar}` and `facebook-{avatar}`.
-- Facebook posting uses the top-feed composer entry (`"What's on your mind, ...?"`). The bottom-right circular edit/pencil button is treated as messaging UI and is intentionally avoided.
-- For Facebook posts with `image_url`, the service attaches the image first, then types text, to avoid copy disappearing after media attach.
-
----
+- Valid platform values: `x` and `facebook`
+- Keep profile IDs aligned: `x-{avatar}` and `facebook-{avatar}`
+- Facebook posting uses top-feed composer (not messenger/edit UI)
+- Facebook `image_url` flow attaches media before typing text
 
 ## Rate Limits
 
-Enforced per avatar per platform:
+Per avatar+platform:
 
-| Limit                          | Default    | Env var                   |
-| ------------------------------ | ---------- | ------------------------- |
+| Limit | Default | Env var |
+| --- | --- | --- |
 | Minimum interval between posts | 60 seconds | `RATE_LIMIT_MIN_INTERVAL` |
-| Maximum posts per day          | 20         | `RATE_LIMIT_DAILY_MAX`    |
-
----
+| Maximum posts per day | 20 | `RATE_LIMIT_DAILY_MAX` |
 
 ## Environment Variables
 
-| Variable                  | Required | Default                     | Description                                                                                                 |
-| ------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `API_SECRET`              | Yes      | —                           | API key for all requests                                                                                    |
-| `LLM_PROVIDER`            | Yes      | —                           | `anthropic`, `openai`, or `ollama`                                                                          |
-| `LLM_API_KEY`             | Yes\*    | —                           | API key for cloud LLM. \*Optional for ollama-only setups.                                                   |
-| `LLM_MODEL_PRIMARY`       | No\*     | `claude-haiku-4-5-20251001` | Fast/cheap model for routine actions. \*Required when `LLM_PROVIDER=ollama`.                                |
-| `LLM_MODEL_FALLBACK`      | No       | `claude-sonnet-4-20250514`  | More capable model for retries                                                                              |
-| `LLM_BASE_URL`            | No\*     | —                           | Base URL for API endpoint. \*Required when `LLM_PROVIDER=ollama` (example: `http://192.168.1.14:11434/v1`). |
-| `LLM_FALLBACK_PROVIDER`   | No       | same as primary             | Provider for fallback model                                                                                 |
-| `LLM_FALLBACK_API_KEY`    | No       | —                           | API key for fallback provider                                                                               |
-| `PORT`                    | No       | `3001`                      | API port                                                                                                    |
-| `DATA_DIR`                | No       | `/app/data`                 | Where profiles and registry are stored. **Change this for local runs.**                                     |
-| `MAX_BROWSER_TIMEOUT`     | No       | `120`                       | Max seconds a browser can run per request                                                                   |
-| `MAX_AI_RETRIES`          | No       | `3`                         | Max AI retries per action step                                                                              |
-| `RATE_LIMIT_MIN_INTERVAL` | No       | `60`                        | Min seconds between posts per avatar                                                                        |
-| `RATE_LIMIT_DAILY_MAX`    | No       | `20`                        | Max posts per avatar per day                                                                                |
-| `DOLPHIN_API_URL`         | No       | `http://localhost:3001`     | Local REST API URL of the Dolphin Anty app. Only needed when using Dolphin profiles.                        |
-| `DOLPHIN_API_TOKEN`       | No       | —                           | Bearer token for the Dolphin API. Generate at dolphin-anty.com → panel → API tokens.                       |
-| `SAVE_DEBUG_SCREENSHOTS`  | No       | `true`                      | Save screenshots on failure to `/data/debug/`                                                               |
-| `NODE_ENV`                | No       | `production`                | `development` for verbose logging                                                                           |
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `API_SECRET` | Yes | — | API key for protected requests |
+| `LLM_PROVIDER` | Yes | — | `anthropic`, `openai`, or `ollama` |
+| `LLM_API_KEY` | Yes* | — | Cloud LLM API key. Optional when `LLM_PROVIDER=ollama` |
+| `LLM_MODEL_PRIMARY` | No* | `claude-haiku-4-5-20251001` | Fast model. Required for `ollama` |
+| `LLM_MODEL_FALLBACK` | No | `claude-sonnet-4-20250514` | Fallback model |
+| `LLM_BASE_URL` | No* | — | Base URL. Required for `ollama` |
+| `LLM_FALLBACK_PROVIDER` | No | same as primary | Optional fallback provider |
+| `LLM_FALLBACK_API_KEY` | No | — | API key for fallback provider |
+| `PORT` | No | `3001` | API port |
+| `DATA_DIR` | No | repo-root `data/` | Persistent storage root. Docker examples use `/app/data` |
+| `MAX_BROWSER_TIMEOUT` | No | `600` | Max browser runtime per request (seconds). `.env.example` recommends `120` |
+| `MAX_AI_RETRIES` | No | `3` | AI retries per action |
+| `RATE_LIMIT_MIN_INTERVAL` | No | `60` | Min seconds between posts |
+| `RATE_LIMIT_DAILY_MAX` | No | `20` | Max daily posts per avatar |
+| `DOLPHIN_API_URL` | No | `http://localhost:3001` | Dolphin local API URL |
+| `DOLPHIN_API_TOKEN` | No | — | Dolphin API bearer token |
+| `SAVE_DEBUG_SCREENSHOTS` | No | `true` | Save failure screenshots to `/data/debug/` |
+| `NODE_ENV` | No | `production` | Runtime mode |
 
----
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Security
+
+See [SECURITY.md](./SECURITY.md).
 
 ## License
 
-MIT
+MIT. See [LICENSE](./LICENSE).

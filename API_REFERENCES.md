@@ -11,6 +11,8 @@ Short, practical reference for using this API by platform.
 x-api-key: <your API_SECRET>
 ```
 
+- Debug screenshot endpoints also accept `?key=<your API_SECRET>` for direct browser access to saved artifacts.
+
 - Canonical platform values:
   - `x`
   - `facebook`
@@ -66,7 +68,7 @@ curl -X POST http://localhost:3001/profiles/x-john-firemool/cookies \
         "sameSite": "Lax"
       }
     ],
-    "proxy": "http://username:password@31.59.20.176:6754",
+    "proxy": "http://username:password@proxy.example.com:6754",
     "dolphin_profile_id": "123456"
   }'
 ```
@@ -116,7 +118,7 @@ curl -X POST http://localhost:3001/profiles/facebook-john-firemool/cookies \
         "sameSite": "None"
       }
     ],
-    "proxy": "http://username:password@179.61.172.144:6695",
+    "proxy": "http://username:password@proxy.example.com:6695",
     "dolphin_profile_id": "123456"
   }'
 ```
@@ -259,4 +261,16 @@ Delete profile:
 ```bash
 curl -X DELETE http://localhost:3001/profiles/facebook-john-firemool \
   -H "x-api-key: your-secret"
+```
+
+List debug screenshots:
+
+```bash
+curl "http://localhost:3001/debug?key=your-secret"
+```
+
+View a debug screenshot:
+
+```text
+http://localhost:3001/debug/<filename>?key=your-secret
 ```
