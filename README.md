@@ -10,9 +10,7 @@ AI-guided browser automation for posting and replying on X and Facebook with per
 
 ## Demo
 
-[![Avatar Browser Service demo](./docs/demo-preview.png)](./docs/demo.mp4)
-
-[Watch the demo video](./docs/demo.mp4).
+![Avatar Browser Service demo](./docs/demo.gif)
 
 ## What This Solves
 
