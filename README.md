@@ -1,4 +1,4 @@
-# Avatar Browser Service
+# Puppeteer AI
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 ![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933.svg)
@@ -7,8 +7,6 @@
 ![Automation](https://img.shields.io/badge/automation-Playwright%20%2B%20Dolphin-fbca04.svg)
 
 AI-guided browser automation for posting and replying on X and Facebook with persistent per-avatar browser profiles.
-
-## Demo
 
 ![Avatar Browser Service demo](./docs/demo.gif)
 
