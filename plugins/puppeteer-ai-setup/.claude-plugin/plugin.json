@@ -1,7 +1,7 @@
 {
   "name": "puppeteer-ai-setup",
   "displayName": "PuppeteerAI Setup",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Install, configure, and verify PuppeteerAI with the local npm setup path.",
   "author": {
     "name": "0xdeval",

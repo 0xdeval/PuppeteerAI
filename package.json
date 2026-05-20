@@ -1,6 +1,6 @@
 {
   "name": "avatar-browser-service",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI browser automation service for posting, replying, commenting, and parsing X/Facebook content with persistent avatar profiles",
   "main": "server.js",
   "license": "MIT",
