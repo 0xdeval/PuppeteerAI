@@ -32,7 +32,30 @@ client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Faceb
 
 ## Quickstart
 
-### Recommended: install the setup skill
+### Recommended: install an agent skill
+
+#### Hermes
+
+Install the Hermes skill from this repository:
+
+```bash
+hermes skills tap add 0xdeval/PuppeteerAI
+hermes skills install 0xdeval/PuppeteerAI/puppeteer-ai
+```
+
+Then use it from Hermes:
+
+```text
+/puppeteer-ai install PuppeteerAI, verify the service, and show me the required profile setup before any live post.
+```
+
+The Hermes skill covers both setup and API usage: installing the service, checking `/health`, importing profile cookies, posting, replying/commenting, and scraping Facebook profile/page posts.
+
+If you do not want to add a tap, install the single skill file directly:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/0xdeval/PuppeteerAI/main/skills/puppeteer-ai/SKILL.md
+```
 
 #### Codex
 
