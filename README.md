@@ -34,26 +34,31 @@ client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Faceb
 
 ### Recommended: set up with an agent skill
 
-This repo includes project-local setup skills for agents that support skills:
+This repo includes publishable setup skills for agents that support local skills:
 
 - Codex: [`.codex/skills/puppeteer-ai-setup/SKILL.md`](./.codex/skills/puppeteer-ai-setup/SKILL.md)
 - Claude: [`.claude/skills/puppeteer-ai-setup/SKILL.md`](./.claude/skills/puppeteer-ai-setup/SKILL.md)
 
-Ask your agent to use the `puppeteer-ai-setup` skill from this repository:
+Install or copy the skill into your agent's project-local skill directory, then ask the agent to use it:
 
 ```text
-Use the puppeteer-ai-setup skill to install and verify this project locally.
+Use the puppeteer-ai-setup skill to install PuppeteerAI into ./PuppeteerAI and verify it locally.
 ```
 
-The skill guides the agent through the npm-based setup path:
+If you are already inside this repository, the same skill uses the current checkout instead of cloning a new one.
+
+The skill guides the agent through the npm-based setup path from either an existing checkout or a fresh clone:
 
 1. Check Node.js and npm.
-2. Run `npm install`.
-3. Run `npx playwright install chromium`.
-4. Create `.env` from `.env.example`.
-5. Configure `API_SECRET`, LLM provider settings, `PORT`, and `DATA_DIR`.
-6. Run `npm test`.
-7. Start the service and verify `GET /health`.
+2. Clone `https://github.com/0xdeval/PuppeteerAI.git` if needed.
+3. Run `npm install`.
+4. Run `npx playwright install chromium`.
+5. Create `.env` from `.env.example`.
+6. Configure `API_SECRET`, LLM provider settings, `PORT`, and `DATA_DIR`.
+7. Run `npm test`.
+8. Start the service and verify `GET /health`.
+
+Future orchestration agents, such as Hermes with its own skill, can use `puppeteer-ai-setup` for the install and verification phase before calling PuppeteerAI through its REST API.
 
 Use the manual npm setup below if your agent does not support project-local skills or if you prefer to run each command yourself.
 

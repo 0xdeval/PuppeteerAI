@@ -1,17 +1,19 @@
 ---
 name: puppeteer-ai-setup
-description: Use when an agent needs to install, configure, or verify PuppeteerAI from this repository using local npm setup. This skill is intentionally npm-only: it covers Node.js prerequisites, dependency installation, Playwright Chromium installation, .env configuration, tests, startup, and health verification. Do not use it for Docker, RunPod, detailed Dolphin setup, cookie import, posting, replying, scraping, or Hermes runtime orchestration.
+description: Use when an agent needs to install, configure, or verify PuppeteerAI using local npm setup, whether from an existing checkout or by cloning https://github.com/0xdeval/PuppeteerAI.git into a target directory. This skill is intentionally npm-only: it covers Node.js prerequisites, repository checkout, dependency installation, Playwright Chromium installation, .env configuration, tests, startup, and health verification. Do not use it for Docker, RunPod, detailed Dolphin setup, cookie import, posting, replying, scraping, or Hermes runtime orchestration.
 ---
 
 # PuppeteerAI Local npm Setup
 
-Use this skill to install and verify PuppeteerAI from the repository checkout. Keep the flow local and npm-based.
+Use this skill to install and verify PuppeteerAI. It works from an existing PuppeteerAI checkout or from any directory where the user wants the repository cloned. Keep the flow local and npm-based.
 
 ## What This Sets Up
 
 PuppeteerAI is a Node.js 20+ Express service for AI-guided browser automation on X and Facebook. It uses Playwright by default, can optionally connect to Dolphin Anty profiles, and exposes REST endpoints for profile management, posting, replying, scraping, debug artifacts, and health checks.
 
 This skill installs the service and proves it can start. Runtime API usage lives in `README.md`, `API_REFERENCES.md`, and the root agent guide files.
+
+Future orchestration agents such as Hermes may use this skill for the install and verification phase, then call PuppeteerAI through its REST API. This skill does not define Hermes runtime behavior.
 
 ## Prerequisites
 
@@ -29,7 +31,33 @@ Requirements:
 - One LLM provider for real browser automation:
   - Anthropic, OpenAI-compatible provider, OpenRouter through OpenAI-compatible config, or local Ollama.
 
-## Install
+## Choose Target Directory
+
+First determine where PuppeteerAI should live:
+
+- If the current directory already contains `package.json`, `server.js`, and `src/app.js`, treat it as the PuppeteerAI checkout.
+- If the user names a target directory, use that directory.
+- If the user does not name a target directory, use `./PuppeteerAI`.
+
+If the target directory does not exist, clone the repository:
+
+```bash
+git clone https://github.com/0xdeval/PuppeteerAI.git ./PuppeteerAI
+cd ./PuppeteerAI
+```
+
+If the target directory exists, enter it and verify it is PuppeteerAI:
+
+```bash
+cd <target-directory>
+test -f package.json
+test -f server.js
+test -f src/app.js
+```
+
+If those files are missing, stop and ask for a different target directory instead of installing into an unrelated project.
+
+## Install Dependencies
 
 Run from the repository root:
 
@@ -93,6 +121,7 @@ Expected: JSON response from the health endpoint.
 
 Setup is complete when:
 
+- The PuppeteerAI repository exists in the target directory.
 - Dependencies are installed.
 - Playwright Chromium is installed.
 - `.env` exists with local development values.
