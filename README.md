@@ -32,20 +32,47 @@ client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Faceb
 
 ## Quickstart
 
-### Prerequisites
+### Recommended: set up with an agent skill
+
+This repo includes project-local setup skills for agents that support skills:
+
+- Codex: [`.codex/skills/puppeteer-ai-setup/SKILL.md`](./.codex/skills/puppeteer-ai-setup/SKILL.md)
+- Claude: [`.claude/skills/puppeteer-ai-setup/SKILL.md`](./.claude/skills/puppeteer-ai-setup/SKILL.md)
+
+Ask your agent to use the `puppeteer-ai-setup` skill from this repository:
+
+```text
+Use the puppeteer-ai-setup skill to install and verify this project locally.
+```
+
+The skill guides the agent through the npm-based setup path:
+
+1. Check Node.js and npm.
+2. Run `npm install`.
+3. Run `npx playwright install chromium`.
+4. Create `.env` from `.env.example`.
+5. Configure `API_SECRET`, LLM provider settings, `PORT`, and `DATA_DIR`.
+6. Run `npm test`.
+7. Start the service and verify `GET /health`.
+
+Use the manual npm setup below if your agent does not support project-local skills or if you prefer to run each command yourself.
+
+### Manual local setup with npm
+
+#### Prerequisites
 
 - Node.js 20+
 - npm
 - One supported LLM provider (Anthropic/OpenAI/OpenRouter) or local Ollama
 
-### 1) Install dependencies
+#### 1) Install dependencies
 
 ```bash
 npm install
 npx playwright install chromium
 ```
 
-### 2) Configure environment
+#### 2) Configure environment
 
 ```bash
 cp .env.example .env
@@ -79,7 +106,7 @@ LLM_MODEL_PRIMARY=qwen2.5vl:7b
 LLM_MODEL_FALLBACK=qwen2.5vl:7b
 ```
 
-### 3) Start the service
+#### 3) Start the service
 
 ```bash
 npm start
@@ -87,7 +114,7 @@ npm start
 
 API runs on `http://localhost:3001` by default.
 
-### 4) One-time profile setup per avatar+platform
+#### 4) One-time profile setup per avatar+platform
 
 Import cookies once for each profile (`x-alice`, `facebook-bob`, etc.):
 
@@ -110,7 +137,7 @@ curl -X POST http://localhost:3001/profiles/x-alice/cookies \
 
 The `proxy` field is optional but recommended for account stability.
 
-### 5) Use the five supported workflows
+#### 5) Use the five supported workflows
 
 - Post to X: `POST /post` with `platform: "x"`
 - Reply on X: `POST /reply` with `platform: "x"`
