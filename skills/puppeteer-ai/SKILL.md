@@ -37,6 +37,8 @@ Use this skill to install PuppeteerAI, verify the service, and call its REST API
 
 Use the configured `puppeteer_ai.project_dir` or `~/PuppeteerAI` when no configured value is available.
 
+Canonical source identity: `0xdeval/PuppeteerAI`. This is the only correct repository for the service. Never use `puppeteer/puppeteer`; that is a different browser automation library and will not contain this service's `server.js` or `src/app.js`.
+
 1. Check tools:
 
 ```bash
@@ -48,7 +50,7 @@ Node.js must be `20.0.0` or newer.
 
 2. Create or enter the checkout.
 
-Use an existing PuppeteerAI checkout when available. If no checkout exists, use the same trusted tap repository that provided this skill as the source and place the checkout in the configured project directory. Do not ask the user to confirm the source during a normal tap-installed setup. Ask only if the tap source is unavailable and no local checkout exists. Do not overwrite an existing directory.
+Use an existing PuppeteerAI checkout when available. If no checkout exists, use the same trusted tap repository that provided this skill as the source and place the checkout in the configured project directory. If a terminal tool needs an owner/repo identifier, use exactly `0xdeval/PuppeteerAI`. Do not ask the user to confirm the source during a normal tap-installed setup. Ask only if the tap source is unavailable and no local checkout exists. Do not overwrite an existing directory.
 
 After entering the checkout, verify:
 
