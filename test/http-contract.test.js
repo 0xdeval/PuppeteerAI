@@ -82,6 +82,53 @@ test('GET /health does not require auth', async () => {
   assert.equal(res.body.status, 'ok');
 });
 
+test('protected endpoints reject missing auth by default', async () => {
+  const app = createApp({
+    apiSecret: 'secret',
+    automationService: {
+      runPost: async () => {
+        throw new Error('runPost should not be called without auth');
+      },
+    },
+  });
+
+  const res = await request(app, 'POST', '/post', {
+    platform: 'x',
+    avatar: 'alice',
+    text: 'hello',
+  }, null);
+
+  assert.equal(res.statusCode, 401);
+  assert.match(res.body.error, /Unauthorized/);
+});
+
+test('protected endpoints allow missing auth when explicitly disabled', async () => {
+  let runPostArgs;
+  const app = createApp({
+    apiSecret: '',
+    authDisabled: true,
+    automationService: {
+      runPost: async (args) => {
+        runPostArgs = args;
+        return {
+          httpStatus: 200,
+          body: { success: true, post_url: null, profileId: 'x-alice' },
+        };
+      },
+    },
+  });
+
+  const res = await request(app, 'POST', '/post', {
+    platform: 'x',
+    avatar: 'alice',
+    text: 'hello',
+  }, null);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(runPostArgs.avatar, 'alice');
+});
+
 test('POST /post validates required fields before service call', async () => {
   let runPostCalls = 0;
   const app = createApp({

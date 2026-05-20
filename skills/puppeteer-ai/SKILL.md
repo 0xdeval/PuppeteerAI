@@ -26,8 +26,8 @@ Use this skill to install PuppeteerAI, verify the service, and call its REST API
 ## Operating Rules
 
 - Base URL comes from `puppeteer_ai.base_url`, defaulting to `http://localhost:3001`.
-- Authenticated requests use the service `.env` `API_SECRET` as the `x-api-key` header.
-- Never paste real cookies, API secrets, proxy credentials, or exported cookie files into chat.
+- Hermes local setup uses `DISABLE_API_AUTH=true` by default so API calls do not need auth headers.
+- Never paste real cookies, proxy credentials, provider keys, or exported cookie files into chat.
 - Do not claim a post/comment/reply was published unless the API returns success.
 - If a profile needs login, ask the user to import fresh cookies before retrying.
 - Supported platforms are exactly `x` and `facebook`.
@@ -74,14 +74,14 @@ cp .env.example .env
 Set at least:
 
 ```bash
-API_SECRET=<strong-generated-local-secret>
+DISABLE_API_AUTH=true
 LLM_PROVIDER=anthropic
 LLM_API_KEY=<provider-api-key>
 PORT=3001
 DATA_DIR=./data
 ```
 
-If `API_SECRET` is missing, generate a strong local value and write it into `.env`. Do not ask for this secret before setup starts. Reuse an existing `.env` `API_SECRET` when present.
+For Hermes on a trusted local machine, leave API auth disabled. For a remote or shared service, do not use this skill's auth-free default; use the normal project documentation and enable HTTP API auth before exposing the service.
 
 For Ollama, `LLM_API_KEY` is not required. For OpenRouter or another OpenAI-compatible provider, set `LLM_PROVIDER=openai`, `LLM_BASE_URL`, `LLM_MODEL_PRIMARY`, and `LLM_MODEL_FALLBACK`.
 
@@ -111,15 +111,11 @@ curl "$PUPPETEER_AI_BASE_URL/health"
 
 If `PUPPETEER_AI_BASE_URL` is not set, use the configured base URL or `http://localhost:3001`.
 
-For authenticated checks:
+Check the local profile API without auth headers:
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
-curl "$PUPPETEER_AI_BASE_URL/profiles" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET"
+curl "$PUPPETEER_AI_BASE_URL/profiles"
 ```
-
-If auth fails, read the current checkout `.env` again and confirm it matches the running service. For a remote service where `.env` is unavailable, ask the user for that service's API secret only when an authenticated API call is needed.
 
 ## Prepare a Profile
 
@@ -135,9 +131,7 @@ facebook-alice
 Import from a local JSON cookie file:
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
 curl -X POST "$PUPPETEER_AI_BASE_URL/profiles/x-alice/cookies" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET" \
   -H "Content-Type: application/json" \
   -d @cookies-payload.json
 ```
@@ -157,9 +151,7 @@ The `proxy` and `dolphin_profile_id` fields are optional. Use the same proxy tha
 Check profile cookie status:
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
-curl "$PUPPETEER_AI_BASE_URL/profiles/x-alice/cookies" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET"
+curl "$PUPPETEER_AI_BASE_URL/profiles/x-alice/cookies"
 ```
 
 ## Publish a Post
@@ -167,9 +159,7 @@ curl "$PUPPETEER_AI_BASE_URL/profiles/x-alice/cookies" \
 Use this for X posts and Facebook personal posts.
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
 curl -X POST "$PUPPETEER_AI_BASE_URL/post" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "avatar": "alice",
@@ -196,9 +186,7 @@ Success response includes `success: true`, `profileId`, and sometimes `post_url`
 Use `/reply` for X replies and Facebook comments.
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
 curl -X POST "$PUPPETEER_AI_BASE_URL/reply" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "avatar": "alice",
@@ -215,9 +203,7 @@ For Facebook, set `platform` to `facebook` and pass the Facebook post URL.
 Scraping is currently for Facebook profile/page URLs.
 
 ```bash
-PUPPETEER_AI_API_SECRET="$(grep '^API_SECRET=' .env | tail -n 1 | cut -d= -f2-)"
 curl -X POST "$PUPPETEER_AI_BASE_URL/scrape" \
-  -H "x-api-key: $PUPPETEER_AI_API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
     "avatar": "alice",
@@ -231,7 +217,7 @@ Success response includes `success: true`, `profileId`, and `posts`.
 
 ## Error Handling
 
-- `401`: Missing or wrong API secret. Read it from the running checkout `.env`, or ask the user for the remote service secret only when `.env` is unavailable.
+- `401`: The service has HTTP API auth enabled. For Hermes local mode, set `DISABLE_API_AUTH=true` and restart. For remote/shared services, stop and ask the user how to authenticate.
 - `400`: Missing fields, invalid platform, invalid profile ID, invalid cookie payload, or failed image download.
 - `429`: Profile is rate-limited or browser is busy. Wait before retrying.
 - `504`: Browser automation timed out. Retry once after checking service logs.

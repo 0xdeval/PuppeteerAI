@@ -49,7 +49,7 @@ Then use it from Hermes:
 /puppeteer-ai install PuppeteerAI, verify the service, and show me the required profile setup before any live post.
 ```
 
-The Hermes skill covers both setup and API usage: installing the service, checking `/health`, importing profile cookies, posting, replying/commenting, and scraping Facebook profile/page posts.
+The Hermes skill covers both setup and API usage: installing the service, checking `/health`, importing profile cookies, posting, replying/commenting, and scraping Facebook profile/page posts. For trusted local Hermes use, it configures `DISABLE_API_AUTH=true` so Hermes can call the local service without API headers.
 
 If you do not want to add a tap, install the single skill file directly:
 
@@ -404,7 +404,8 @@ Per avatar+platform:
 
 | Variable                  | Required | Default                     | Description                                                                |
 | ------------------------- | -------- | --------------------------- | -------------------------------------------------------------------------- |
-| `API_SECRET`              | Yes      | —                           | API key for protected requests                                             |
+| `API_SECRET`              | Yes\*    | —                           | API key for protected requests. Not required when `DISABLE_API_AUTH=true`  |
+| `DISABLE_API_AUTH`        | No       | `false`                     | Disable HTTP API auth only for trusted local agent integrations            |
 | `LLM_PROVIDER`            | Yes      | —                           | `anthropic`, `openai`, or `ollama`                                         |
 | `LLM_API_KEY`             | Yes\*    | —                           | Cloud LLM API key. Optional when `LLM_PROVIDER=ollama`                     |
 | `LLM_MODEL_PRIMARY`       | No\*     | `claude-haiku-4-5-20251001` | Fast model. Required for `ollama`                                          |

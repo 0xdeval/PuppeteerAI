@@ -1,7 +1,13 @@
 'use strict';
 
-function createRequireAuth(apiSecret) {
+function createRequireAuth(apiSecret, options = {}) {
+  const authDisabled = options.authDisabled === true;
+
   return function requireAuth(req, res, next) {
+    if (authDisabled) {
+      return next();
+    }
+
     if (!apiSecret) {
       return res.status(500).json({ error: 'API_SECRET not configured on server.' });
     }
@@ -15,8 +21,14 @@ function createRequireAuth(apiSecret) {
   };
 }
 
-function createRequireAuthOrQuery(apiSecret) {
+function createRequireAuthOrQuery(apiSecret, options = {}) {
+  const authDisabled = options.authDisabled === true;
+
   return function requireAuthOrQuery(req, res, next) {
+    if (authDisabled) {
+      return next();
+    }
+
     if (!apiSecret) {
       return res.status(500).json({ error: 'API_SECRET not configured on server.' });
     }

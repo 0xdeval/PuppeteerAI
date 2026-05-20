@@ -11,6 +11,8 @@ const { profileService: defaultProfileService } = require('./services/profile-se
 
 function createApp(options = {}) {
   const apiSecret = options.apiSecret ?? process.env.API_SECRET;
+  const authDisabled = options.authDisabled
+    ?? /^(1|true|yes)$/i.test(process.env.DISABLE_API_AUTH || '');
   const httpTimeoutMs = options.httpTimeoutMs
     ?? (parseInt(process.env.MAX_BROWSER_TIMEOUT || '600', 10) * 1000);
   const dataDir = options.dataDir || process.env.DATA_DIR || path.join(__dirname, '..', 'data');
@@ -21,8 +23,8 @@ function createApp(options = {}) {
   app.use(express.json({ limit: '10mb' }));
   app.use(createTimeoutMiddleware(httpTimeoutMs));
 
-  const requireAuth = createRequireAuth(apiSecret);
-  const requireAuthOrQuery = createRequireAuthOrQuery(apiSecret);
+  const requireAuth = createRequireAuth(apiSecret, { authDisabled });
+  const requireAuthOrQuery = createRequireAuthOrQuery(apiSecret, { authDisabled });
 
   registerRoutes(app, {
     requireAuth,
