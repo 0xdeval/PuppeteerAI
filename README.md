@@ -34,16 +34,6 @@ client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Faceb
 
 ### Recommended: install the setup skill
 
-This repo ships a `puppeteer-ai-setup` skill as an installable plugin and as raw skill files:
-
-- Plugin package: [`plugins/puppeteer-ai-setup`](./plugins/puppeteer-ai-setup)
-- Codex marketplace catalog: [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json)
-- Claude Code marketplace catalog: [`.claude-plugin/marketplace.json`](./.claude-plugin/marketplace.json)
-- Raw Codex skill fallback: [`.codex/skills/puppeteer-ai-setup/SKILL.md`](./.codex/skills/puppeteer-ai-setup/SKILL.md)
-- Raw Claude skill fallback: [`.claude/skills/puppeteer-ai-setup/SKILL.md`](./.claude/skills/puppeteer-ai-setup/SKILL.md)
-
-These files make the skill publishable, but they do not submit it to an official marketplace. Until it is listed in an official marketplace, install it from this repository.
-
 #### Codex
 
 Open the Codex plugin UI:
@@ -54,12 +44,13 @@ Open the Codex plugin UI:
 
 Add or select the `PuppeteerAI` marketplace from this repository, then install `PuppeteerAI Setup`.
 
-If your Codex build does not support repo marketplaces yet, install the raw skill manually:
+If your Codex build does not support repo marketplaces yet, give your agent the raw skill URL and ask it to follow the setup instructions:
 
-```bash
-mkdir -p ~/.codex/skills/puppeteer-ai-setup
-curl -fsSL https://raw.githubusercontent.com/0xdeval/PuppeteerAI/main/.codex/skills/puppeteer-ai-setup/SKILL.md \
-  -o ~/.codex/skills/puppeteer-ai-setup/SKILL.md
+```text
+Read and follow this PuppeteerAI setup skill:
+https://raw.githubusercontent.com/0xdeval/PuppeteerAI/main/.codex/skills/puppeteer-ai-setup/SKILL.md
+
+Install PuppeteerAI into ./PuppeteerAI and verify it locally.
 ```
 
 #### Claude Code
@@ -381,33 +372,33 @@ Runtime startup (`runpod-entrypoint.sh`):
 
 Per avatar+platform:
 
-| Limit | Default | Env var |
-| --- | --- | --- |
+| Limit                          | Default    | Env var                   |
+| ------------------------------ | ---------- | ------------------------- |
 | Minimum interval between posts | 60 seconds | `RATE_LIMIT_MIN_INTERVAL` |
-| Maximum posts per day | 20 | `RATE_LIMIT_DAILY_MAX` |
+| Maximum posts per day          | 20         | `RATE_LIMIT_DAILY_MAX`    |
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `API_SECRET` | Yes | — | API key for protected requests |
-| `LLM_PROVIDER` | Yes | — | `anthropic`, `openai`, or `ollama` |
-| `LLM_API_KEY` | Yes* | — | Cloud LLM API key. Optional when `LLM_PROVIDER=ollama` |
-| `LLM_MODEL_PRIMARY` | No* | `claude-haiku-4-5-20251001` | Fast model. Required for `ollama` |
-| `LLM_MODEL_FALLBACK` | No | `claude-sonnet-4-20250514` | Fallback model |
-| `LLM_BASE_URL` | No* | — | Base URL. Required for `ollama` |
-| `LLM_FALLBACK_PROVIDER` | No | same as primary | Optional fallback provider |
-| `LLM_FALLBACK_API_KEY` | No | — | API key for fallback provider |
-| `PORT` | No | `3001` | API port |
-| `DATA_DIR` | No | repo-root `data/` | Persistent storage root. Docker examples use `/app/data` |
-| `MAX_BROWSER_TIMEOUT` | No | `600` | Max browser runtime per request (seconds). `.env.example` recommends `120` |
-| `MAX_AI_RETRIES` | No | `3` | AI retries per action |
-| `RATE_LIMIT_MIN_INTERVAL` | No | `60` | Min seconds between posts |
-| `RATE_LIMIT_DAILY_MAX` | No | `20` | Max daily posts per avatar |
-| `DOLPHIN_API_URL` | No | `http://localhost:3001` | Dolphin local API URL |
-| `DOLPHIN_API_TOKEN` | No | — | Dolphin API bearer token |
-| `SAVE_DEBUG_SCREENSHOTS` | No | `true` | Save failure screenshots to `/data/debug/` |
-| `NODE_ENV` | No | `production` | Runtime mode |
+| Variable                  | Required | Default                     | Description                                                                |
+| ------------------------- | -------- | --------------------------- | -------------------------------------------------------------------------- |
+| `API_SECRET`              | Yes      | —                           | API key for protected requests                                             |
+| `LLM_PROVIDER`            | Yes      | —                           | `anthropic`, `openai`, or `ollama`                                         |
+| `LLM_API_KEY`             | Yes\*    | —                           | Cloud LLM API key. Optional when `LLM_PROVIDER=ollama`                     |
+| `LLM_MODEL_PRIMARY`       | No\*     | `claude-haiku-4-5-20251001` | Fast model. Required for `ollama`                                          |
+| `LLM_MODEL_FALLBACK`      | No       | `claude-sonnet-4-20250514`  | Fallback model                                                             |
+| `LLM_BASE_URL`            | No\*     | —                           | Base URL. Required for `ollama`                                            |
+| `LLM_FALLBACK_PROVIDER`   | No       | same as primary             | Optional fallback provider                                                 |
+| `LLM_FALLBACK_API_KEY`    | No       | —                           | API key for fallback provider                                              |
+| `PORT`                    | No       | `3001`                      | API port                                                                   |
+| `DATA_DIR`                | No       | repo-root `data/`           | Persistent storage root. Docker examples use `/app/data`                   |
+| `MAX_BROWSER_TIMEOUT`     | No       | `600`                       | Max browser runtime per request (seconds). `.env.example` recommends `120` |
+| `MAX_AI_RETRIES`          | No       | `3`                         | AI retries per action                                                      |
+| `RATE_LIMIT_MIN_INTERVAL` | No       | `60`                        | Min seconds between posts                                                  |
+| `RATE_LIMIT_DAILY_MAX`    | No       | `20`                        | Max daily posts per avatar                                                 |
+| `DOLPHIN_API_URL`         | No       | `http://localhost:3001`     | Dolphin local API URL                                                      |
+| `DOLPHIN_API_TOKEN`       | No       | —                           | Dolphin API bearer token                                                   |
+| `SAVE_DEBUG_SCREENSHOTS`  | No       | `true`                      | Save failure screenshots to `/data/debug/`                                 |
+| `NODE_ENV`                | No       | `production`                | Runtime mode                                                               |
 
 ## Contributing
 
