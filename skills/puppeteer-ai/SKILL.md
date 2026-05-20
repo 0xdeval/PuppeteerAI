@@ -50,14 +50,11 @@ npm --version
 
 Node.js must be `20.0.0` or newer.
 
-2. Create or enter the checkout:
+2. Create or enter the checkout.
 
-```bash
-git clone https://github.com/0xdeval/PuppeteerAI.git ~/PuppeteerAI
-cd ~/PuppeteerAI
-```
+Use an existing PuppeteerAI checkout when available. If no checkout exists, ask the user to confirm the trusted source and target directory before downloading repository code. Do not overwrite an existing directory.
 
-If the directory already exists, do not overwrite it. Enter it and verify:
+After entering the checkout, verify:
 
 ```bash
 test -f package.json
@@ -186,7 +183,7 @@ Optional image:
   "avatar": "alice",
   "platform": "facebook",
   "text": "Post text",
-  "image_url": "https://example.com/image.png"
+  "image_url": "<optional-image-url>"
 }
 ```
 
@@ -203,7 +200,7 @@ curl -X POST "$PUPPETEER_AI_BASE_URL/reply" \
   -d '{
     "avatar": "alice",
     "platform": "x",
-    "post_url": "https://x.com/user/status/123456789",
+    "post_url": "<target-post-url>",
     "text": "Reply text"
   }'
 ```
@@ -221,7 +218,7 @@ curl -X POST "$PUPPETEER_AI_BASE_URL/scrape" \
   -d '{
     "avatar": "alice",
     "platform": "facebook",
-    "profile_url": "https://www.facebook.com/some.profile",
+    "profile_url": "<facebook-profile-or-page-url>",
     "limit": 5
   }'
 ```
