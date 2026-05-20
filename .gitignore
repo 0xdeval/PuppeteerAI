@@ -10,7 +10,6 @@ bun.lock
 # IDE & editor
 .vscode/
 .idea/
-.claude/
 *.swp
 *.swo
 *~
@@ -43,3 +42,4 @@ tmp/
 temp/
 
 data
+.omc
