@@ -1,0 +1,21 @@
+{
+  "name": "puppeteer-ai-setup",
+  "displayName": "PuppeteerAI Setup",
+  "version": "1.0.1",
+  "description": "Install, configure, and verify PuppeteerAI with the local npm setup path.",
+  "author": {
+    "name": "0xdeval",
+    "url": "https://github.com/0xdeval"
+  },
+  "homepage": "https://github.com/0xdeval/PuppeteerAI#quickstart",
+  "repository": "https://github.com/0xdeval/PuppeteerAI",
+  "license": "MIT",
+  "keywords": [
+    "puppeteer",
+    "playwright",
+    "browser-automation",
+    "social-media",
+    "setup"
+  ],
+  "skills": "./skills/"
+}

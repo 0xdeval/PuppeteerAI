@@ -1,6 +1,6 @@
 ---
 name: puppeteer-ai-setup
-description: Use when Claude needs to install, configure, or verify PuppeteerAI using local npm setup, whether from an existing checkout or by cloning https://github.com/0xdeval/PuppeteerAI.git into a target directory. This skill is intentionally npm-only: it covers Node.js prerequisites, repository checkout, dependency installation, Playwright Chromium installation, .env configuration, tests, startup, and health verification. Do not use it for Docker, RunPod, detailed Dolphin setup, cookie import, posting, replying, scraping, or Hermes runtime orchestration.
+description: "Use when Claude needs to install, configure, or verify PuppeteerAI using local npm setup, whether from an existing checkout or by cloning https://github.com/0xdeval/PuppeteerAI.git into a target directory. This skill is intentionally npm-only: it covers Node.js prerequisites, repository checkout, dependency installation, Playwright Chromium installation, .env configuration, tests, startup, and health verification. Do not use it for Docker, RunPod, detailed Dolphin setup, cookie import, posting, replying, scraping, or Hermes runtime orchestration."
 ---
 
 # PuppeteerAI Local npm Setup

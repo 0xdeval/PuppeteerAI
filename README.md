@@ -32,14 +32,67 @@ client / n8n -> REST API -> profile registry -> Playwright or Dolphin -> X/Faceb
 
 ## Quickstart
 
-### Recommended: set up with an agent skill
+### Recommended: install the setup skill
 
-This repo includes publishable setup skills for agents that support local skills:
+This repo ships a `puppeteer-ai-setup` skill as an installable plugin and as raw skill files:
 
-- Codex: [`.codex/skills/puppeteer-ai-setup/SKILL.md`](./.codex/skills/puppeteer-ai-setup/SKILL.md)
-- Claude: [`.claude/skills/puppeteer-ai-setup/SKILL.md`](./.claude/skills/puppeteer-ai-setup/SKILL.md)
+- Plugin package: [`plugins/puppeteer-ai-setup`](./plugins/puppeteer-ai-setup)
+- Codex marketplace catalog: [`.agents/plugins/marketplace.json`](./.agents/plugins/marketplace.json)
+- Claude Code marketplace catalog: [`.claude-plugin/marketplace.json`](./.claude-plugin/marketplace.json)
+- Raw Codex skill fallback: [`.codex/skills/puppeteer-ai-setup/SKILL.md`](./.codex/skills/puppeteer-ai-setup/SKILL.md)
+- Raw Claude skill fallback: [`.claude/skills/puppeteer-ai-setup/SKILL.md`](./.claude/skills/puppeteer-ai-setup/SKILL.md)
 
-Install or copy the skill into your agent's project-local skill directory, then ask the agent to use it:
+These files make the skill publishable, but they do not submit it to an official marketplace. Until it is listed in an official marketplace, install it from this repository.
+
+#### Codex
+
+Open the Codex plugin UI:
+
+```text
+/plugins
+```
+
+Add or select the `PuppeteerAI` marketplace from this repository, then install `PuppeteerAI Setup`.
+
+If your Codex build does not support repo marketplaces yet, install the raw skill manually:
+
+```bash
+mkdir -p ~/.codex/skills/puppeteer-ai-setup
+curl -fsSL https://raw.githubusercontent.com/0xdeval/PuppeteerAI/main/.codex/skills/puppeteer-ai-setup/SKILL.md \
+  -o ~/.codex/skills/puppeteer-ai-setup/SKILL.md
+```
+
+#### Claude Code
+
+Register this repository as a Claude Code plugin marketplace:
+
+```text
+/plugin marketplace add 0xdeval/PuppeteerAI
+```
+
+Install the setup plugin:
+
+```text
+/plugin install puppeteer-ai-setup@puppeteer-ai
+```
+
+The installed skill is invoked as:
+
+```text
+/puppeteer-ai-setup:puppeteer-ai-setup
+```
+
+If you prefer a raw project-local skill, copy or download the skill file:
+
+```bash
+mkdir -p .claude/skills/puppeteer-ai-setup
+curl -fsSL https://raw.githubusercontent.com/0xdeval/PuppeteerAI/main/.claude/skills/puppeteer-ai-setup/SKILL.md \
+  -o .claude/skills/puppeteer-ai-setup/SKILL.md
+```
+
+#### Use the skill from chat
+
+Ask your agent to use the installed `puppeteer-ai-setup` skill:
 
 ```text
 Use the puppeteer-ai-setup skill to install PuppeteerAI into ./PuppeteerAI and verify it locally.

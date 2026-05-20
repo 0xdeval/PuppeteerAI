@@ -1,0 +1,27 @@
+{
+  "name": "puppeteer-ai",
+  "owner": {
+    "name": "0xdeval"
+  },
+  "description": "PuppeteerAI Claude Code plugins and skills.",
+  "version": "1.0.1",
+  "plugins": [
+    {
+      "name": "puppeteer-ai-setup",
+      "displayName": "PuppeteerAI Setup",
+      "source": "./plugins/puppeteer-ai-setup",
+      "description": "Install, configure, and verify PuppeteerAI with npm.",
+      "version": "1.0.1",
+      "author": {
+        "name": "0xdeval"
+      },
+      "category": "Developer Tools",
+      "tags": [
+        "puppeteer",
+        "playwright",
+        "browser-automation",
+        "setup"
+      ]
+    }
+  ]
+}
